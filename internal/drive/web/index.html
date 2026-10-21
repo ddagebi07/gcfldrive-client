@@ -31,15 +31,16 @@
     </form>
   </div>
   <button type="button" id="otherWay" class="other-way">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>다른 방식 이용
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>바탕화면으로 나가기
   </button>
+  <p class="notice-bottom">이 프로그램은 학교의 허락을 받아 설치한 소프트웨어입니다.<br>모두가 함께 쓰는 PC이니, 임의로 닫거나 지우지 말아 주세요.</p>
   <div class="powered"><span>Powered by</span><img id="logo" src="img/logo.png" alt="GCFL Archive"></div>
 </main>
 
 <!-- 2. 내 파일 -->
 <main id="drive" class="view" hidden>
   <header class="drive-head">
-    <h2 class="greeting"><b>환영합니다!</b><br>ようこそ！</h2>
+    <h2 class="greeting"><b>환영합니다!</b><br><span id="hello" lang="ja">ようこそ！</span></h2>
     <div class="session">
       <div class="countdown"><span>로그아웃까지</span><b id="remain">5분 00초</b></div>
       <button type="button" id="logout" class="btn primary">로그아웃

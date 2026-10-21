@@ -57,10 +57,13 @@ input:focus{border:2px solid var(--primary);padding-left:19px}
 .btn.block{width:100%}
 .btn.small{height:40px;padding:0 20px;font-size:16px}
 
-.other-way{position:absolute;left:18px;bottom:16px;display:flex;align-items:center;gap:2px;padding:8px 12px 8px 6px;border:0;
-  background:none;color:var(--gray-60);font-size:14px;cursor:pointer;border-radius:6px}
-.other-way svg{font-size:18px}
-.other-way:hover{background:var(--gray-5);color:var(--gray-90)}
+.other-way{position:absolute;left:18px;bottom:14px;display:flex;align-items:center;gap:4px;padding:9px 16px 9px 10px;
+  border:1px solid var(--gray-30);background:#fff;color:var(--gray-70);font-size:15px;font-weight:500;cursor:pointer;
+  border-radius:999px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.other-way svg{font-size:19px;color:var(--primary)}
+.other-way:hover{border-color:var(--primary);color:var(--primary-hover);background:#f5f8ff}
+.notice-bottom{display:none;position:absolute;left:50%;bottom:22px;transform:translateX(-50%);margin:0;width:max-content;max-width:46vw;
+  text-align:center;font-size:13px;line-height:1.6;color:var(--gray-50)}
 .powered{position:absolute;right:22px;bottom:16px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--gray-60)}
 .powered img{height:26px;width:auto;pointer-events:none}
 
@@ -117,7 +120,8 @@ body.full #login{background:var(--gray-5)}
 body.full .title{font-size:44px}
 body.full .subtitle{font-size:19px}
 body.full .login-box{width:440px}
-body.full .other-way{font-size:15px;left:28px;bottom:26px}
+body.full .other-way{font-size:16px;left:28px;bottom:24px;padding:11px 20px 11px 12px}
+body.full .notice-bottom{display:block;bottom:28px;font-size:14px}
 body.full .powered{right:34px;bottom:26px}
 
 /* --- 출력 --- */

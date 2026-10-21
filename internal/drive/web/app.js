@@ -64,7 +64,20 @@ function showLogin() {
   setPinError("");
   $("pin").focus();
 }
+const HELLOS = [
+  ["en", "Welcome!"], ["ja", "ようこそ！"], ["zh", "欢迎光临！"], ["fr", "Bienvenue !"], ["de", "Willkommen!"],
+];
+let lastHello = -1;
+function pickHello() {
+  let i;
+  do { i = Math.floor(Math.random() * HELLOS.length); } while (i === lastHello);
+  lastHello = i;
+  const [lang, text] = HELLOS[i];
+  $("hello").lang = lang;
+  $("hello").textContent = text;
+}
 function showDrive(list) {
+  pickHello();
   setFiles(list);
   $("login").hidden = true;
   $("drive").hidden = false;
