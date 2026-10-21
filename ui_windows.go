@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 
 	"github.com/ddagebi07/gcfldrive-client/internal/drive"
+	"github.com/ddagebi07/gcfldrive-client/internal/guard"
 )
 
 var (
@@ -31,6 +33,7 @@ var (
 	procGetDpiForSystem   = user32.NewProc("GetDpiForSystem")
 	procMessageBox        = user32.NewProc("MessageBoxW")
 	procGetWindowLongRead = user32.NewProc(windowLongReadName())
+	procIsIconic          = user32.NewProc("IsIconic")
 	kernel32              = windows.NewLazySystemDLL("kernel32.dll")
 	procGetTickCount      = kernel32.NewProc("GetTickCount")
 )
@@ -89,6 +92,45 @@ type uiHost struct {
 	savedStyle uintptr
 	savedRect  [4]int32
 	allowExit  atomic.Bool
+
+	cameForNotice atomic.Bool // the window was minimized and only came up to show a print warning
+}
+
+func (h *uiHost) NoticeDone() {
+	if h.cameForNotice.Swap(false) {
+		h.w.Dispatch(func() { _, _, _ = procShowWindow.Call(h.hwnd, swMinimize) })
+	}
+}
+
+// pollNotices asks the service for cancelled print jobs and shows each one in the window.
+func (h *uiHost) pollNotices() {
+	for range time.Tick(time.Second) {
+		resp, err := askGuardResp(guard.Request{Op: "poll-notice"})
+		if err != nil || resp.Notice == nil {
+			continue
+		}
+		raw, _ := json.Marshal(resp.Notice)
+		h.w.Dispatch(func() {
+			if iconic, _, _ := procIsIconic.Call(h.hwnd); iconic != 0 {
+				h.cameForNotice.Store(true)
+				_, _, _ = procShowWindow.Call(h.hwnd, swRestore)
+			}
+			hwndTopmost, hwndNoTopmost := ^uintptr(0), ^uintptr(1)
+			const flags = 0x0001 | 0x0002 | 0x0040 // NOSIZE | NOMOVE | SHOWWINDOW
+			_, _, _ = procSetWindowPos.Call(h.hwnd, hwndTopmost, 0, 0, 0, 0, flags)
+			if !h.isFullscreen() {
+				_, _, _ = procSetWindowPos.Call(h.hwnd, hwndNoTopmost, 0, 0, 0, 0, flags)
+			}
+			_, _, _ = procSetForeground.Call(h.hwnd)
+			h.w.Eval("window.showPrintNotice(" + string(raw) + ")")
+		})
+	}
+}
+
+func (h *uiHost) isFullscreen() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.fullscreen
 }
 
 func (h *uiHost) OtherWay() {
@@ -235,6 +277,7 @@ func runUI(server string) int {
 	centerWindow(host.hwnd)
 	lockClose(host)
 	go host.watch(sess)
+	go host.pollNotices()
 
 	w.Navigate(url)
 	w.Run()

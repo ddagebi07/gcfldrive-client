@@ -27,9 +27,10 @@ async function call(path, body) {
 }
 
 /* ---------- 대화상자 ---------- */
-function dialog({ title, body = "", extra = null, buttons }) {
+function dialog({ title, body = "", extra = null, buttons, tone = "" }) {
   return new Promise((resolve) => {
     const scrim = $("dialogScrim");
+    scrim.querySelector(".dialog").dataset.tone = tone;
     $("dialogTitle").textContent = title;
     $("dialogBody").textContent = body;
     const extraBox = $("dialogExtra");
@@ -405,3 +406,26 @@ async function openAdmin() {
 }
 
 document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+/* ---------- 출력 제한 경고 (보호 서비스가 취소한 출력) ---------- */
+window.showPrintNotice = async ({ document: doc, sheets, max }) => {
+  const box = document.createElement("div");
+  box.className = "notice-box";
+  const name = document.createElement("p");
+  name.className = "notice-doc";
+  name.textContent = doc || "문서";
+  box.innerHTML =
+    '<div class="notice-stats">' +
+    `<div class="over"><span>이번 출력</span><b>약 ${sheets}장</b></div>` +
+    `<div><span>한 번에 최대</span><b>${max}장</b></div></div>` +
+    '<p class="notice-tip">양면 인쇄를 하거나, 나눠서 출력해 주세요.</p>';
+  box.prepend(name);
+  await dialog({
+    title: `한 번에 ${max}장까지만\n출력할 수 있어요`,
+    body: "학교 방침에 따라 출력을 취소했어요.",
+    extra: box,
+    buttons: [{ label: "확인", kind: "primary", value: true }],
+    tone: "warning",
+  });
+  call("/api/notice-done", {}).catch(() => {});
+};

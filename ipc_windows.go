@@ -47,28 +47,33 @@ func serveGuard(ln net.Listener, handle func(guard.Request) guard.Response) {
 
 // askGuard sends one request to the service.
 func askGuard(req guard.Request) error {
+	_, err := askGuardResp(req)
+	return err
+}
+
+func askGuardResp(req guard.Request) (guard.Response, error) {
 	timeout := 3 * time.Second
 	conn, err := winio.DialPipe(guard.PipePath, &timeout)
 	if err != nil {
-		return errors.New("보호 서비스에 연결하지 못했어요.")
+		return guard.Response{}, errors.New("보호 서비스에 연결하지 못했어요.")
 	}
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
 	if _, err := conn.Write(guard.Encode(req)); err != nil {
-		return errors.New("보호 서비스에 연결하지 못했어요.")
+		return guard.Response{}, errors.New("보호 서비스에 연결하지 못했어요.")
 	}
 	line, err := bufio.NewReader(conn).ReadBytes('\n')
 	if err != nil {
-		return errors.New("보호 서비스가 응답하지 않아요.")
+		return guard.Response{}, errors.New("보호 서비스가 응답하지 않아요.")
 	}
 	var resp guard.Response
 	if json.Unmarshal(line, &resp) != nil {
-		return errors.New("보호 서비스의 응답을 읽지 못했어요.")
+		return guard.Response{}, errors.New("보호 서비스의 응답을 읽지 못했어요.")
 	}
 	if !resp.OK {
-		return errors.New(resp.Error)
+		return resp, errors.New(resp.Error)
 	}
-	return nil
+	return resp, nil
 }
 
 // pipeGuard is the window's way to the service (drive.Guard).

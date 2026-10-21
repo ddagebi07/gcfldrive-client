@@ -11,8 +11,9 @@ import (
 
 type fakeHost struct{ otherWay, exited int }
 
-func (h *fakeHost) OtherWay() { h.otherWay++ }
-func (h *fakeHost) Exit()     { h.exited++ }
+func (h *fakeHost) OtherWay()   { h.otherWay++ }
+func (h *fakeHost) Exit()       { h.exited++ }
+func (h *fakeHost) NoticeDone() {}
 
 type fakeGuard struct{ ok bool }
 

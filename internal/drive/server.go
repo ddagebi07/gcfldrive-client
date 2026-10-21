@@ -31,6 +31,9 @@ type Host interface {
 	// OtherWay lets the student leave the launcher: it leaves full screen and
 	// minimizes the window so the desktop shows, and holds back the nudge for a while.
 	OtherWay()
+	// NoticeDone is called when the person dismissed a print warning, so the window
+	// can go back to where it was (minimized) if it only came up for the warning.
+	NoticeDone()
 	// Exit ends the program (administrator only).
 	Exit()
 }
@@ -97,6 +100,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/blob/{id}/drop", s.handleBlobDrop)
 	mux.HandleFunc("POST /api/delete", s.handleDelete)
 	mux.HandleFunc("POST /api/other-way", s.handleOtherWay)
+	mux.HandleFunc("POST /api/notice-done", func(w http.ResponseWriter, r *http.Request) { s.host.NoticeDone(); w.WriteHeader(http.StatusNoContent) })
 	mux.HandleFunc("POST /api/admin/check", s.handleAdmin("check"))
 	mux.HandleFunc("POST /api/admin/maintenance", s.handleAdmin("maintenance"))
 	mux.HandleFunc("POST /api/admin/uninstall", s.handleAdmin("uninstall"))

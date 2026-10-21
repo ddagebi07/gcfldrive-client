@@ -94,13 +94,14 @@ type watched struct {
 
 type printWatcher struct {
 	active func() bool // false while the administrator's maintenance window is open
+	notify func(document string, sheets int)
 	mu     sync.Mutex
 	seen   map[string]*watched
 	notice map[string]time.Time
 }
 
-func newPrintWatcher(active func() bool) *printWatcher {
-	return &printWatcher{active: active, seen: map[string]*watched{}, notice: map[string]time.Time{}}
+func newPrintWatcher(active func() bool, notify func(string, int)) *printWatcher {
+	return &printWatcher{active: active, notify: notify, seen: map[string]*watched{}, notice: map[string]time.Time{}}
 }
 
 func (p *printWatcher) run(stop <-chan struct{}) {
@@ -241,13 +242,7 @@ func (p *printWatcher) warn(key, document string, sheets int) {
 	}
 	p.notice[key] = time.Now()
 	p.mu.Unlock()
-	document = strings.TrimSpace(document)
-	if r := []rune(document); len(r) > 40 {
-		document = string(r[:40]) + "…"
-	}
-	msg := fmt.Sprintf("한 번에 종이 %d장까지만 출력할 수 있어요.\n\n'%s'은(는) 약 %d장이라 출력을 취소했어요.\n쪽수를 줄이거나 나눠서 출력해 주세요. (양면 인쇄도 방법이에요.)",
-		guard.MaxSheetsPerJob, document, sheets)
-	showMessage(consoleSession(), "출력 제한", msg)
+	p.notify(strings.TrimSpace(document), sheets)
 }
 
 func consoleSession() uint32 { return windows.WTSGetActiveConsoleSessionId() }

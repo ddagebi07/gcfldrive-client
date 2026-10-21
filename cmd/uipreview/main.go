@@ -18,11 +18,14 @@ import (
 
 type host struct{}
 
-func (host) OtherWay() { fmt.Println("other way") }
-func (host) Exit()     { fmt.Println("exit") }
+func (host) OtherWay()   { fmt.Println("other way") }
+func (host) Exit()       { fmt.Println("exit") }
+func (host) NoticeDone() { fmt.Println("notice done") }
 
 func main() {
-	iso := func(d time.Duration) string { return time.Now().Add(d).UTC().Format("2006-01-02T15:04:05.000000") + "Z" }
+	iso := func(d time.Duration) string {
+		return time.Now().Add(d).UTC().Format("2006-01-02T15:04:05.000000") + "Z"
+	}
 	row := func(id, name string, size int, expires time.Duration, del *time.Duration) string {
 		d := "null"
 		if del != nil {

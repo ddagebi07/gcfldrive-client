@@ -65,15 +65,23 @@ func (c *Config) Verify(password string) bool {
 
 // Request is one line of JSON the window (or the command line) sends to the service.
 type Request struct {
-	Op       string `json:"op"` // check | maintenance | uninstall | resume | ping
+	Op       string `json:"op"` // check | maintenance | uninstall | resume | ping | poll-notice
 	Password string `json:"password,omitempty"`
 	Minutes  int    `json:"minutes,omitempty"`
 }
 
 // Response answers a Request. Error is shown to the person as is.
 type Response struct {
-	OK    bool   `json:"ok"`
-	Error string `json:"error,omitempty"`
+	OK     bool    `json:"ok"`
+	Error  string  `json:"error,omitempty"`
+	Notice *Notice `json:"notice,omitempty"` // answer to poll-notice: a warning to show, if any
+}
+
+// Notice is a cancelled print job the window should tell the person about.
+type Notice struct {
+	Document string `json:"document"`
+	Sheets   int    `json:"sheets"`
+	Max      int    `json:"max"`
 }
 
 func Encode(v any) []byte { b, _ := json.Marshal(v); return append(b, '\n') }

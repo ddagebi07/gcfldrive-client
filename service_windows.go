@@ -30,9 +30,47 @@ type guardService struct {
 	pausedUntil  time.Time
 	uninstalling bool
 
+	notices     []queuedNotice
 	lastLaunch  time.Time
 	fastExits   int
 	backoffTill time.Time
+}
+
+type queuedNotice struct {
+	guard.Notice
+	at time.Time
+}
+
+// pushNotice queues a print warning for the window to show in its own screen.
+func (g *guardService) pushNotice(document string, sheets int) {
+	g.mu.Lock()
+	g.notices = append(g.notices, queuedNotice{Notice: guard.Notice{Document: document, Sheets: sheets, Max: guard.MaxSheetsPerJob}, at: time.Now()})
+	g.mu.Unlock()
+}
+
+func (g *guardService) popNotice() *guard.Notice {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if len(g.notices) == 0 {
+		return nil
+	}
+	n := g.notices[0].Notice
+	g.notices = g.notices[1:]
+	return &n
+}
+
+// flushStaleNotices falls back to a plain Windows message box when the window did not pick a warning up.
+func (g *guardService) flushStaleNotices() {
+	g.mu.Lock()
+	var stale []guard.Notice
+	for len(g.notices) > 0 && time.Since(g.notices[0].at) > 8*time.Second {
+		stale = append(stale, g.notices[0].Notice)
+		g.notices = g.notices[1:]
+	}
+	g.mu.Unlock()
+	for _, n := range stale {
+		showMessage(consoleSession(), "출력 제한", fmt.Sprintf("한 번에 종이 %d장까지만 출력할 수 있어요.\n\n'%s'은(는) 약 %d장이라 출력을 취소했어요.", n.Max, n.Document, n.Sheets))
+	}
 }
 
 func runService() error {
@@ -65,7 +103,7 @@ func (g *guardService) Execute(_ []string, requests <-chan svc.ChangeRequest, st
 	}
 	stop := make(chan struct{})
 	defer close(stop)
-	go newPrintWatcher(func() bool { return !g.paused() }).run(stop)
+	go newPrintWatcher(func() bool { return !g.paused() }, g.pushNotice).run(stop)
 
 	// Not accepting Stop: nobody, administrators included, can stop the service from outside.
 	status <- svc.Status{State: svc.Running, Accepts: svc.AcceptShutdown | svc.AcceptSessionChange}
@@ -100,6 +138,7 @@ func (g *guardService) isUninstalling() bool {
 }
 
 func (g *guardService) tick(rehard bool) {
+	g.flushStaleNotices()
 	g.mu.Lock()
 	until, gone := g.pausedUntil, g.uninstalling
 	g.mu.Unlock()
@@ -140,6 +179,8 @@ func (g *guardService) handle(req guard.Request) guard.Response {
 	switch req.Op {
 	case "ping":
 		return guard.Response{OK: true}
+	case "poll-notice":
+		return guard.Response{OK: true, Notice: g.popNotice()}
 	case "resume":
 		g.mu.Lock()
 		g.pausedUntil = time.Time{}
