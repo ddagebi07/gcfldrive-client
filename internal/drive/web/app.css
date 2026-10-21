@@ -1,0 +1,137 @@
+/* 극플드라이브 — KRDS(범정부 UX/UI 디자인 시스템) 토큰·컴포넌트를 바탕으로, 제공된 화면과 같게 다듬었다. */
+@font-face{font-family:"Pretendard";font-weight:400;src:url(fonts/Pretendard-Regular.woff2) format("woff2")}
+@font-face{font-family:"Pretendard";font-weight:500;src:url(fonts/Pretendard-Medium.woff2) format("woff2")}
+@font-face{font-family:"Pretendard";font-weight:600;src:url(fonts/Pretendard-SemiBold.woff2) format("woff2")}
+@font-face{font-family:"Pretendard";font-weight:700;src:url(fonts/Pretendard-Bold.woff2) format("woff2")}
+
+:root{
+  --primary:#256ef4; --primary-hover:#0b50d0; --primary-active:#083891;
+  --danger:#de3412; --danger-text:#b92100; --danger-hover:#bd2c0f;
+  --gray-0:#fff; --gray-5:#f4f5f6; --gray-10:#e6e8ea; --gray-20:#cdd1d5; --gray-30:#b1b8be;
+  --gray-40:#8a949e; --gray-50:#6d7882; --gray-60:#58616a; --gray-70:#464c53; --gray-90:#1e2124;
+  --focus:#256ef4; --radius:8px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:"Pretendard","Malgun Gothic","Yu Gothic","Meiryo",sans-serif;color:var(--gray-90);background:var(--gray-0);
+  -webkit-font-smoothing:antialiased;user-select:none;cursor:default;overflow:hidden;font-size:16px;line-height:1.5}
+[hidden]{display:none!important}
+svg{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
+.view{position:relative;height:100vh;display:flex;flex-direction:column}
+
+/* --- 로그인 --- */
+#login{align-items:center;justify-content:center}
+.login-box{width:388px;margin-top:-12px}
+.subtitle{margin:0;text-align:center;font-size:16px;line-height:1.5;color:var(--gray-90)}
+.title{margin:8px 0 28px;text-align:center;font-size:34px;line-height:1.3;font-weight:500;letter-spacing:-.01em}
+.field{margin-bottom:24px}
+.field label{display:block;margin-bottom:6px;font-size:15px;color:var(--gray-60)}
+.input-wrap{position:relative}
+input{width:100%;height:50px;padding:0 48px 0 20px;font:inherit;font-size:17px;color:var(--gray-90);background:var(--gray-0);
+  border:1px solid var(--gray-40);border-radius:var(--radius);outline:none;user-select:text}
+input::placeholder{color:var(--gray-40)}
+input:focus{border:2px solid var(--primary);padding-left:19px}
+.field.invalid input{border:2px solid var(--danger);padding-left:19px}
+.icon-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;background:none;
+  display:grid;place-items:center;color:var(--gray-60);font-size:19px;cursor:pointer;border-radius:6px}
+.icon-btn:hover{background:var(--gray-5)}
+.error{display:flex;align-items:center;gap:6px;margin:6px 0 0;font-size:15px;color:var(--danger-text)}
+.error svg{width:17px;height:17px;stroke-width:1.6}
+.error svg circle{fill:var(--danger);stroke:var(--danger)}
+.error svg path{stroke:#fff;stroke-width:1.8}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:50px;padding:0 22px;border:0;border-radius:var(--radius);
+  font-size:19px;font-weight:500;cursor:pointer;transition:background-color .12s}
+.btn svg{font-size:20px}
+.btn.primary{background:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-hover)}
+.btn.primary:active{background:var(--primary-active)}
+.btn.primary:disabled{background:var(--gray-30);cursor:default}
+.btn.danger{background:var(--danger);color:#fff}
+.btn.danger:hover{background:var(--danger-hover)}
+.btn.outline{background:var(--gray-0);color:var(--gray-90);border:1px solid var(--gray-60)}
+.btn.outline:hover{background:var(--gray-5)}
+.btn.block{width:100%}
+.btn.small{height:40px;padding:0 20px;font-size:16px}
+
+.other-way{position:absolute;left:18px;bottom:16px;display:flex;align-items:center;gap:2px;padding:8px 12px 8px 6px;border:0;
+  background:none;color:var(--gray-60);font-size:14px;cursor:pointer;border-radius:6px}
+.other-way svg{font-size:18px}
+.other-way:hover{background:var(--gray-5);color:var(--gray-90)}
+.powered{position:absolute;right:22px;bottom:16px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--gray-60)}
+.powered img{height:26px;width:auto;pointer-events:none}
+
+/* --- 내 파일 --- */
+#drive{padding:0 88px}
+.drive-head{display:flex;justify-content:space-between;align-items:flex-start;margin-top:56px}
+.greeting{margin:0;font-size:25px;line-height:1.4;font-weight:400}
+.greeting b{font-weight:700}
+.session{display:flex;align-items:center;gap:14px}
+.countdown{text-align:right;line-height:1.25;font-size:13px;color:var(--gray-60)}
+.countdown b{display:block;font-size:15px;color:var(--gray-90);font-weight:700;font-variant-numeric:tabular-nums}
+.countdown.soon b{color:var(--danger-text)}
+.panel{flex:1;margin:34px 0 72px;padding:20px 22px;overflow:auto;background:var(--gray-10);border-radius:var(--radius)}
+.panel.empty{display:grid;place-items:center}
+.empty-row{display:flex;align-items:center;gap:22px}
+.qr{width:94px;height:94px;padding:8px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.qr img{width:100%;height:100%;display:block}
+.empty-row strong{display:block;font-size:19px;font-weight:700}
+.empty-row span{display:block;margin-top:2px;font-size:19px;font-weight:700;color:var(--primary)}
+.row{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.row:last-child{margin-bottom:0}
+.badge{width:52px;flex:none;display:flex;flex-direction:column;align-items:center;font-size:12px;line-height:1.2;color:var(--gray-60);font-variant-numeric:tabular-nums}
+.badge svg{font-size:23px;margin-bottom:2px}
+.badge.urgent{color:var(--danger-text)}
+.card{flex:1;min-width:0;display:flex;align-items:center;gap:16px;height:54px;padding:0 20px;background:#fff;border-radius:var(--radius)}
+.card .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px}
+.link{display:inline-flex;align-items:center;gap:6px;padding:6px 4px;border:0;background:none;font-size:15px;color:var(--gray-70);cursor:pointer;border-radius:6px;white-space:nowrap}
+.link svg{font-size:17px}
+.link:hover{color:var(--gray-90);background:var(--gray-5)}
+.link:disabled{opacity:.45;cursor:default}
+
+/* --- 대화상자 --- */
+.scrim{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(30,33,36,.28)}
+.dialog{position:relative;width:418px;max-width:calc(100vw - 32px);padding:44px 48px 36px;background:#fff;border:1px solid var(--gray-30);
+  border-radius:var(--radius);box-shadow:0 8px 28px rgba(0,0,0,.18)}
+.dialog h3{margin:0 0 20px;font-size:23px;line-height:1.35;font-weight:700}
+.dialog p{margin:0;font-size:16px;line-height:1.55;color:var(--gray-70);white-space:pre-line}
+#dialogExtra{margin-top:16px}
+#dialogExtra:empty{display:none}
+.dialog .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:42px}
+.dialog .close{position:absolute;top:14px;right:14px;width:36px;height:36px;border:0;background:none;border-radius:6px;display:grid;place-items:center;font-size:22px;cursor:pointer}
+.dialog .close:hover{background:var(--gray-5)}
+.dialog input{height:46px}
+.dialog .btn{height:40px;padding:0 20px;font-size:15px}
+.dialog .stack{display:grid;gap:10px;margin-top:6px}
+.dialog .stack .btn{width:100%}
+.busy{background:rgba(255,255,255,.72);flex-direction:column;gap:14px;align-content:center;justify-items:center;z-index:30}
+.busy p{margin:0;font-size:16px;color:var(--gray-70)}
+.spinner{width:34px;height:34px;border:4px solid var(--gray-20);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* --- 대기 화면(전체화면) --- */
+body.full #login{background:var(--gray-5)}
+body.full .title{font-size:44px}
+body.full .subtitle{font-size:19px}
+body.full .login-box{width:440px}
+body.full .other-way{font-size:15px;left:28px;bottom:26px}
+body.full .powered{right:34px;bottom:26px}
+
+/* --- 출력 --- */
+#printArea,#hwpHost{position:fixed;left:-99999px;top:0}
+#hwpHost{width:1200px;height:900px}
+@page{size:A4;margin:0}
+@page land{size:A4 landscape;margin:0}
+@media print{
+  html,body{height:auto;overflow:visible;background:#fff}
+  body>*:not(#printArea){display:none!important}
+  #printArea{position:static;display:block}
+  .pg{width:210mm;height:296mm;overflow:hidden;break-after:page;page-break-after:always}
+  .pg.land{width:297mm;height:209mm;page:land}
+  .pg:last-child{break-after:auto;page-break-after:auto}
+  .pg img{display:block;width:100%;height:100%;object-fit:contain}
+  .pg-text{width:210mm;padding:18mm;font:11pt/1.5 "Malgun Gothic","Pretendard",monospace;white-space:pre-wrap;word-break:break-all}
+}

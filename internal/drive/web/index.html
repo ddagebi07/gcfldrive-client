@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>극플드라이브 - GCFL 아카이브</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- 1. PIN 입력 -->
+<main id="login" class="view">
+  <div class="login-box">
+    <p class="subtitle">PIN으로 접속.<br>간편하게 프린트.</p>
+    <h1 class="title">극플드라이브</h1>
+    <form id="loginForm" novalidate autocomplete="off">
+      <div class="field" id="pinField">
+        <label for="pin">PIN 4자리</label>
+        <div class="input-wrap">
+          <input id="pin" type="password" inputmode="numeric" maxlength="4" placeholder="예. 0000" autocomplete="off" autofocus>
+          <button type="button" id="eye" class="icon-btn" aria-label="PIN 보기" tabindex="-1">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <p class="error" id="pinError" hidden>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7.5"/><path d="M5.4 5.4l5.2 5.2M10.6 5.4l-5.2 5.2"/></svg>
+          <span></span>
+        </p>
+      </div>
+      <button type="submit" id="loginBtn" class="btn primary block">로그인</button>
+    </form>
+  </div>
+  <button type="button" id="otherWay" class="other-way">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>다른 방식 이용
+  </button>
+  <div class="powered"><span>Powered by</span><img id="logo" src="img/logo.png" alt="GCFL Archive"></div>
+</main>
+
+<!-- 2. 내 파일 -->
+<main id="drive" class="view" hidden>
+  <header class="drive-head">
+    <h2 class="greeting"><b>환영합니다!</b><br>ようこそ！</h2>
+    <div class="session">
+      <div class="countdown"><span>로그아웃까지</span><b id="remain">5분 00초</b></div>
+      <button type="button" id="logout" class="btn primary">로그아웃
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </button>
+    </div>
+  </header>
+  <section class="panel" id="panel" aria-live="polite"></section>
+  <div class="powered"><span>Powered by</span><img src="img/logo.png" alt="GCFL Archive"></div>
+</main>
+
+<!-- 대화상자 -->
+<div class="scrim" id="dialogScrim" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+    <button type="button" class="close" id="dialogClose" aria-label="닫기">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg>
+    </button>
+    <h3 id="dialogTitle"></h3>
+    <p id="dialogBody"></p>
+    <div id="dialogExtra"></div>
+    <div class="actions" id="dialogActions"></div>
+  </div>
+</div>
+<div class="scrim busy" id="busy" hidden><div class="spinner"></div><p id="busyText">준비하고 있어요</p></div>
+
+<!-- 출력용 (화면에는 보이지 않는다) -->
+<div id="printArea" aria-hidden="true"></div>
+<div id="hwpHost" aria-hidden="true"></div>
+
+<script src="vendor/pdf.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

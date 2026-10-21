@@ -1,0 +1,10 @@
+#!/bin/sh
+# 32비트 Windows 10(x86)용 배포 폴더(dist/)를 만듭니다. Go 1.26 이상이 필요합니다.
+set -e
+cd "$(dirname "$0")"
+go test ./internal/...
+GOOS=windows GOARCH=386 go vet .
+GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui" -o dist/gcfldrive.exe .
+cp install.cmd uninstall.cmd dist/
+echo "dist/ 에 gcfldrive.exe, install.cmd, uninstall.cmd 를 만들었어요."
+echo "WebView2 런타임이 없는 PC용으로 MicrosoftEdgeWebView2RuntimeInstallerX86.exe 를 dist/ 에 함께 넣어 주세요."
