@@ -100,7 +100,7 @@ input:focus{border:2px solid var(--primary);padding-left:19px}
 .dialog{position:relative;width:418px;max-width:calc(100vw - 32px);padding:44px 48px 36px;background:#fff;border:1px solid var(--gray-30);
   border-radius:var(--radius);box-shadow:0 8px 28px rgba(0,0,0,.18)}
 .dialog h3{margin:0 0 20px;font-size:23px;line-height:1.35;font-weight:700}
-.dialog p{margin:0;font-size:16px;line-height:1.55;color:var(--gray-70);white-space:pre-line}
+.dialog p{word-break:keep-all;margin:0;font-size:16px;line-height:1.55;color:var(--gray-70);white-space:pre-line}
 #dialogExtra{margin-top:16px}
 #dialogExtra:empty{display:none}
 .dialog .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:42px}

@@ -34,7 +34,7 @@ func run(args []string) int {
 	case "", "--ui", "ui":
 		return runUI(server)
 	case "install":
-		return cliInstall()
+		return cliInstall(args[1:])
 	case "uninstall":
 		return cliUninstall()
 	case "resume":

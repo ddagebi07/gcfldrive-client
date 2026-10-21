@@ -293,17 +293,16 @@ func centerWindow(hwnd uintptr) {
 	_, _, _ = procSetWindowPos.Call(hwnd, 0, uintptr(x), uintptr(y), 0, 0, swpNoZOrder|0x0001) // SWP_NOSIZE
 }
 
-// lockClose makes the window impossible to close: the close button is greyed and
-// every WM_CLOSE / SC_CLOSE (Alt+F4, taskbar "Close window", a polite taskkill) is
-// swallowed. Only the administrator's menu ends the program.
+// lockClose makes the window impossible to close without the administrator
+// password: every WM_CLOSE / SC_CLOSE (the X button, Alt+F4, taskbar "Close
+// window", a polite taskkill) is swallowed and opens the password dialog instead.
+// Only the administrator's menu ends the program.
 func lockClose(h *uiHost) {
-	menu, _, _ := procGetSystemMenu.Call(h.hwnd, 0)
-	_, _, _ = procEnableMenuItem.Call(menu, scClose, mfByCommand|mfGrayed)
-
 	var orig uintptr
 	proc := windows.NewCallback(func(hwnd, msg, wp, lp uintptr) uintptr {
 		if !h.allowExit.Load() {
 			if msg == wmClose || (msg == wmSysCommand && wp&scMask == scClose) {
+				h.w.Eval("window.openAdmin && window.openAdmin()") // closing needs the administrator password
 				return 0
 			}
 		}

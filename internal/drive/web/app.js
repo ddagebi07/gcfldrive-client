@@ -371,13 +371,21 @@ $("logo").addEventListener("click", () => {
 });
 window.addEventListener("keydown", (e) => { if (e.ctrlKey && e.shiftKey && e.key === "F12") openAdmin(); });
 
+let adminOpen = false;
 async function openAdmin() {
+  if (adminOpen) return;
+  adminOpen = true;
+  try { await adminFlow(); } finally { adminOpen = false; }
+}
+window.openAdmin = openAdmin;
+
+async function adminFlow() {
   const input = document.createElement("input");
   input.type = "password";
   input.placeholder = "관리자 비밀번호";
   input.autocomplete = "off";
   const asked = dialog({
-    title: "관리자 확인", extra: input,
+    title: "관리자 확인", body: "프로그램을 종료하거나 제거하려면 관리자 비밀번호가 필요해요.", extra: input,
     buttons: [{ label: "취소", kind: "outline", value: false }, { label: "확인", kind: "primary", value: true }],
   });
   input.focus();
@@ -388,8 +396,8 @@ async function openAdmin() {
 
   const stack = document.createElement("div");
   stack.className = "stack";
-  const choice = dialog({ title: "관리자 메뉴", body: "보호를 풀면 프로그램이 닫히고 10분 뒤에 다시 보호돼요.", extra: stack, buttons: [{ label: "닫기", kind: "outline", value: null }] });
-  [["10분 동안 보호 풀기", "pause", "primary"], ["프로그램 제거", "remove", "danger"]].forEach(([label, value, kind]) => {
+  const choice = dialog({ title: "관리자 메뉴", body: "종료하면 10분 동안 보호가 풀리고, 10분 뒤에 자동으로 다시 실행돼요.", extra: stack, buttons: [{ label: "닫기", kind: "outline", value: null }] });
+  [["프로그램 종료 (10분간 보호 해제)", "pause", "primary"], ["프로그램 제거", "remove", "danger"]].forEach(([label, value, kind]) => {
     const b = document.createElement("button");
     b.type = "button"; b.className = "btn " + kind; b.textContent = label;
     b.onclick = () => { $("dialogScrim").hidden = true; stack.dispatchEvent(new CustomEvent("pick", { detail: value })); };
@@ -397,7 +405,7 @@ async function openAdmin() {
   });
   const picked = await Promise.race([choice, new Promise((r) => stack.addEventListener("pick", (e) => r(e.detail), { once: true }))]);
   try {
-    if (picked === "pause") { await call("/api/admin/maintenance", { password, minutes: 10 }); setBusy("보호를 풀고 있어요"); }
+    if (picked === "pause") { await call("/api/admin/maintenance", { password, minutes: 10 }); setBusy("종료하고 있어요"); }
     if (picked === "remove") {
       const sure = await dialog({ title: "프로그램을 제거할까요?", body: "이 PC에서 극플드라이브와 보호 서비스가 사라져요.", buttons: [{ label: "취소", kind: "outline", value: false }, { label: "제거", kind: "danger", value: true }] });
       if (sure) { await call("/api/admin/uninstall", { password }); setBusy("제거하고 있어요"); }

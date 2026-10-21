@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"os"
 	"testing"
 	"time"
 )
@@ -73,5 +74,18 @@ func TestSheets(t *testing.T) {
 		if OverLimit(c.pages, c.copies, c.duplex) != c.over {
 			t.Errorf("OverLimit(%d,%d,%v) want %v", c.pages, c.copies, c.duplex, c.over)
 		}
+	}
+}
+
+// GCFL_TEST_PW holds the real default password; the test is skipped without it so
+// the password never has to be written into the repository.
+func TestDefaultConfigMatchesThePassword(t *testing.T) {
+	pw := os.Getenv("GCFL_TEST_PW")
+	if pw == "" {
+		t.Skip("GCFL_TEST_PW not set")
+	}
+	c := DefaultConfig()
+	if !c.Verify(pw) || c.Verify(pw+"x") || c.Verify("") {
+		t.Fatal("default config does not match the password")
 	}
 }

@@ -39,7 +39,7 @@ func serviceExists() bool {
 }
 
 // cliInstall is run once per PC by an administrator ("관리자 권한으로 실행").
-func cliInstall() int {
+func cliInstall(args []string) int {
 	if !isAdmin() {
 		fmt.Println("관리자 권한이 필요해요. install.cmd를 마우스 오른쪽 버튼으로 '관리자 권한으로 실행'해 주세요.")
 		return 1
@@ -54,20 +54,21 @@ func cliInstall() int {
 		return 1
 	}
 
-	pw, err := readPassword(fmt.Sprintf("관리자 비밀번호를 정해 주세요 (%d자 이상): ", guard.MinPasswordLength))
-	if err != nil {
-		fmt.Println("비밀번호를 읽지 못했어요.")
-		return 1
-	}
-	again, _ := readPassword("한 번 더 입력해 주세요: ")
-	if pw != again {
-		fmt.Println("두 비밀번호가 달라요.")
-		return 1
-	}
-	cfg, err := guard.NewConfig(pw)
-	if err != nil {
-		fmt.Println(err)
-		return 1
+	cfg := guard.DefaultConfig()
+	if len(args) > 0 && args[0] == "--set-password" {
+		pw, err := readPassword(fmt.Sprintf("관리자 비밀번호를 정해 주세요 (%d자 이상): ", guard.MinPasswordLength))
+		if err != nil {
+			fmt.Println("비밀번호를 읽지 못했어요.")
+			return 1
+		}
+		if again, _ := readPassword("한 번 더 입력해 주세요: "); pw != again {
+			fmt.Println("두 비밀번호가 달라요.")
+			return 1
+		}
+		if cfg, err = guard.NewConfig(pw); err != nil {
+			fmt.Println(err)
+			return 1
+		}
 	}
 
 	if !webview2Installed() {
@@ -123,7 +124,7 @@ func cliInstall() int {
 	// The service now applies the ACLs and policies itself; give it a moment so the message below is true.
 	time.Sleep(3 * time.Second)
 	fmt.Println("설치했어요. 로그인하면 극플드라이브 창이 자동으로 떠요.")
-	fmt.Println("제거하거나 보호를 풀려면 화면 아래 'Powered by' 로고를 7번 눌러 관리자 메뉴를 여세요.")
+	fmt.Println("종료하거나 제거하려면 창을 닫으려 하거나(Alt+F4) 화면 아래 'Powered by' 로고를 7번 눌러 관리자 비밀번호를 입력하세요.")
 	return 0
 }
 
