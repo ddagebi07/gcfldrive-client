@@ -15,16 +15,21 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 //go:embed all:web
 var webFS embed.FS
 
-// MaxSheets is the school's per-person limit of paper for one print job.
-const MaxSheets = 7
+// DefaultMaxSheets is the school's per-person limit of paper for one print job
+// until the server says otherwise (the librarian sets it online).
+const DefaultMaxSheets = 7
 
-var pinRe = regexp.MustCompile(`^\d{4}$`)
+var (
+	pinRe    = regexp.MustCompile(`^\d{4}$`)
+	hakbunRe = regexp.MustCompile(`^\d{5}$`)
+)
 
 // Host is the native window the page runs in. The Windows UI implements it.
 type Host interface {
@@ -57,6 +62,7 @@ type Server struct {
 
 	mu         sync.Mutex
 	fullscreen bool
+	maxSheets  atomic.Int32
 
 	Addr string // host:port once listening
 }
@@ -64,7 +70,21 @@ type Server struct {
 func NewServer(api *API, sess *Session, host Host, guard Guard) *Server {
 	raw := make([]byte, 16)
 	_, _ = rand.Read(raw)
-	return &Server{api: api, sess: sess, host: host, guard: guard, token: hex.EncodeToString(raw)}
+	s := &Server{api: api, sess: sess, host: host, guard: guard, token: hex.EncodeToString(raw)}
+	s.maxSheets.Store(DefaultMaxSheets)
+	return s
+}
+
+// SyncSettings keeps the paper limit in step with what the librarian set online.
+func (s *Server) SyncSettings(every time.Duration) {
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		if n, err := s.api.MaxSheets(ctx); err == nil {
+			s.maxSheets.Store(int32(n))
+		}
+		cancel()
+		time.Sleep(every)
+	}
 }
 
 // SetFullscreen is called by the window when it changes mode, so the page can match.
@@ -92,6 +112,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("POST /api/login", s.handleLogin)
 	mux.HandleFunc("POST /api/logout", s.handleLogout)
+	mux.HandleFunc("POST /api/recover", s.handleRecover)
 	mux.HandleFunc("GET /api/state", s.handleState)
 	mux.HandleFunc("POST /api/activity", s.handleActivity)
 	mux.HandleFunc("GET /api/files", s.handleFiles)
@@ -195,22 +216,50 @@ func (s *Server) view(files []File) []fileView {
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		PIN string `json:"pin"`
+		Hakbun string `json:"hakbun"`
+		PIN    string `json:"pin"`
 	}
 	if !readBody(w, r, &in) {
+		return
+	}
+	if !hakbunRe.MatchString(in.Hakbun) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "학번 5자리를 입력해 주세요."})
 		return
 	}
 	if !pinRe.MatchString(in.PIN) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "PIN 4자리를 입력해 주세요."})
 		return
 	}
-	files, err := s.api.List(r.Context(), in.PIN)
+	files, err := s.api.List(r.Context(), in.Hakbun, in.PIN)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	s.sess.Login(in.PIN)
-	writeJSON(w, http.StatusOK, map[string]any{"files": s.view(files)})
+	s.sess.Login(in.Hakbun, in.PIN)
+	writeJSON(w, http.StatusOK, map[string]any{"hakbun": in.Hakbun, "files": s.view(files)})
+}
+
+// handleRecover answers "비밀번호를 잊으셨나요": the page gets the student's PIN back, fills the
+// login form with it and signs in the normal way.
+func (s *Server) handleRecover(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Hakbun string `json:"hakbun"`
+		Name   string `json:"name"`
+	}
+	if !readBody(w, r, &in) {
+		return
+	}
+	in.Name = strings.TrimSpace(in.Name)
+	if !hakbunRe.MatchString(in.Hakbun) || in.Name == "" || len([]rune(in.Name)) > 20 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "이름과 학번 5자리를 입력해 주세요."})
+		return
+	}
+	pin, err := s.api.Recover(r.Context(), in.Hakbun, in.Name)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"hakbun": in.Hakbun, "pin": pin})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -219,13 +268,13 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
-	_, in := s.sess.PIN()
+	hakbun, _, in := s.sess.Credentials()
 	s.mu.Lock()
 	full := s.fullscreen
 	s.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"loggedIn": in, "remainingMs": s.sess.Remaining().Milliseconds(),
-		"fullscreen": full, "maxSheets": MaxSheets,
+		"loggedIn": in, "hakbun": hakbun, "remainingMs": s.sess.Remaining().Milliseconds(),
+		"fullscreen": full, "maxSheets": s.maxSheets.Load(),
 	})
 }
 
@@ -235,19 +284,13 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
-	pin, ok := s.sess.PIN()
+	hakbun, pin, ok := s.sess.Credentials()
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "PIN을 다시 입력해 주세요."})
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "다시 로그인해 주세요."})
 		return
 	}
-	files, err := s.api.List(r.Context(), pin)
+	files, err := s.api.List(r.Context(), hakbun, pin)
 	if err != nil {
-		var apiErr *APIError
-		if errors.As(err, &apiErr) && apiErr.Status == http.StatusNotFound {
-			// every file is gone (printed and expired, or deleted)
-			writeJSON(w, http.StatusOK, map[string]any{"files": []fileView{}})
-			return
-		}
 		writeError(w, err)
 		return
 	}
@@ -262,20 +305,20 @@ func (s *Server) handlePrint(w http.ResponseWriter, r *http.Request) {
 	if !readBody(w, r, &in) {
 		return
 	}
-	pin, ok := s.sess.PIN()
+	hakbun, pin, ok := s.sess.Credentials()
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "PIN을 다시 입력해 주세요."})
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "다시 로그인해 주세요."})
 		return
 	}
 	s.sess.Touch()
-	got, err := s.api.Fetch(r.Context(), pin, in.ID)
+	got, err := s.api.Fetch(r.Context(), hakbun, pin, in.ID)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	if _, still := s.sess.PIN(); !still { // logged out while downloading
+	if !s.sess.SignedIn() { // logged out while downloading
 		clear(got.Body)
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "PIN을 다시 입력해 주세요."})
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "다시 로그인해 주세요."})
 		return
 	}
 	id := s.sess.Hold(&Blob{Kind: got.Kind, ContentType: got.ContentType, Name: in.Name, Body: got.Body})
@@ -311,13 +354,13 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	if !readBody(w, r, &in) {
 		return
 	}
-	pin, ok := s.sess.PIN()
+	hakbun, pin, ok := s.sess.Credentials()
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "PIN을 다시 입력해 주세요."})
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "다시 로그인해 주세요."})
 		return
 	}
 	s.sess.Touch()
-	if err := s.api.Delete(r.Context(), pin, in.ID); err != nil {
+	if err := s.api.Delete(r.Context(), hakbun, pin, in.ID); err != nil {
 		writeError(w, err)
 		return
 	}

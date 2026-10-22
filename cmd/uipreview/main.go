@@ -5,6 +5,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -45,18 +46,29 @@ func main() {
 	arch := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
+		case r.URL.Path == "/api/share/settings":
+			fmt.Fprint(w, `{"maxSheets":7}`)
+		case r.URL.Path == "/api/share/recover":
+			var in struct{ Hakbun, Name string }
+			_ = json.NewDecoder(r.Body).Decode(&in)
+			if in.Hakbun == "30512" && in.Name == "홍길동" {
+				fmt.Fprint(w, `{"status":"ok","pin":"1234"}`)
+				return
+			}
+			w.WriteHeader(404)
+			fmt.Fprint(w, `{"error":"학번과 이름이 맞는 학생을 찾지 못했어요. 비밀번호를 바꾼 학생은 이 방법을 쓸 수 없어요."}`)
 		case strings.Contains(r.URL.Path, "/file/") && os.Getenv("UIPREVIEW_PDF") != "":
 			body, _ := os.ReadFile(os.Getenv("UIPREVIEW_PDF"))
 			w.Header().Set("X-Drive-Kind", "pdf")
 			w.Header().Set("Content-Type", "application/pdf")
 			_, _ = w.Write(body)
-		case strings.HasSuffix(r.URL.Path, "/1234"):
+		case strings.HasSuffix(r.URL.Path, "/30512/1234"):
 			fmt.Fprintf(w, `{"status":"ok","files":[%s]}`, files)
-		case strings.HasSuffix(r.URL.Path, "/0000"):
+		case strings.HasSuffix(r.URL.Path, "/30513/0000"):
 			fmt.Fprint(w, `{"status":"ok","files":[]}`)
 		default:
-			w.WriteHeader(404)
-			fmt.Fprint(w, `{"error":"이 PIN으로 보관 중인 파일이 없어요. PIN을 다시 확인해 주세요."}`)
+			w.WriteHeader(403)
+			fmt.Fprint(w, `{"error":"PIN이 맞지 않아요. 다시 입력해주세요."}`)
 		}
 	}))
 	defer arch.Close()

@@ -12,7 +12,7 @@ import (
 	"github.com/ddagebi07/gcfldrive-client/internal/guard"
 )
 
-// The school allows at most guard.MaxSheetsPerJob sheets per print job, no matter
+// The school allows at most guard.MaxSheets() sheets per print job (7 unless the librarian changed it online), no matter
 // which program prints. Every job goes through the Windows print queue, so the
 // service watches the queue: a new job is held until it is fully spooled, then
 // either released or cancelled with a notice on the screen.

@@ -193,7 +193,7 @@ func (h *uiHost) idle() time.Duration {
 // while and nobody is signed in, the PIN screen takes the whole screen.
 func (h *uiHost) watch(sess *drive.Session) {
 	for range time.Tick(2 * time.Second) {
-		_, signedIn := sess.PIN()
+		signedIn := sess.SignedIn()
 		h.mu.Lock()
 		full, grace := h.fullscreen, h.graceUntil
 		h.mu.Unlock()
@@ -254,6 +254,7 @@ func runUI(server string) int {
 	host := &uiHost{}
 	srv := drive.NewServer(drive.NewAPI(server), sess, host, pipeGuard{})
 	host.srv = srv
+	go srv.SyncSettings(5 * time.Minute)
 	url, err := srv.Listen()
 	if err != nil {
 		messageBox(appTitle, "화면을 시작하지 못했어요: "+err.Error())

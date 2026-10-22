@@ -61,9 +61,11 @@ function showLogin() {
   $("drive").hidden = true;
   $("login").hidden = false;
   $("dialogScrim").hidden = true;
+  $("hakbun").value = "";
   $("pin").value = "";
+  setHakbunError("");
   setPinError("");
-  $("pin").focus();
+  $("hakbun").focus();
 }
 const HELLOS = [
   ["en", "Welcome!"], ["ja", "ようこそ！"], ["zh", "欢迎光临！"], ["fr", "Bienvenue !"], ["de", "Willkommen!"],
@@ -77,19 +79,23 @@ function pickHello() {
   $("hello").lang = lang;
   $("hello").textContent = text;
 }
-function showDrive(list) {
+function showDrive(hakbun, list) {
   pickHello();
+  $("who").textContent = hakbun + "님";
   setFiles(list);
   $("login").hidden = true;
   $("drive").hidden = false;
 }
 
 /* ---------- 로그인 ---------- */
-function setPinError(msg) {
-  $("pinField").classList.toggle("invalid", !!msg);
-  $("pinError").hidden = !msg;
-  $("pinError").querySelector("span").textContent = msg;
+function setFieldError(field, errorEl, msg) {
+  $(field).classList.toggle("invalid", !!msg);
+  $(errorEl).hidden = !msg;
+  $(errorEl).querySelector("span").textContent = msg;
 }
+const setPinError = (msg) => setFieldError("pinField", "pinError", msg);
+const setHakbunError = (msg) => setFieldError("hakbunField", "hakbunError", msg);
+$("hakbun").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 5); setHakbunError(""); });
 $("pin").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4); setPinError(""); });
 $("eye").addEventListener("click", () => {
   const input = $("pin");
@@ -101,19 +107,73 @@ $("eye").addEventListener("click", () => {
 });
 $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const hakbun = $("hakbun").value;
   const pin = $("pin").value;
-  if (!pin) return setPinError("PIN을 입력해 주세요.");
-  if (!/^\d{4}$/.test(pin)) return setPinError("PIN 4자리를 입력해 주세요.");
+  let bad = false;
+  if (!hakbun) { setHakbunError("학번을 입력해 주세요."); bad = true; }
+  else if (!/^\d{5}$/.test(hakbun)) { setHakbunError("학번 5자리를 입력해 주세요."); bad = true; }
+  if (!pin) { setPinError("PIN을 입력해 주세요."); bad = true; }
+  else if (!/^\d{4}$/.test(pin)) { setPinError("PIN 4자리를 입력해 주세요."); bad = true; }
+  if (bad) return;
   $("loginBtn").disabled = true;
   try {
-    const { files: list } = await call("/api/login", { pin });
-    showDrive(list);
+    const res = await call("/api/login", { hakbun, pin });
+    showDrive(res.hakbun, res.files);
   } catch (err) {
-    setPinError(err.message);
+    if (/학번/.test(err.message) && err.status === 400) setHakbunError(err.message);
+    else setPinError(err.message);
   } finally {
     $("loginBtn").disabled = false;
   }
 });
+
+/* 비밀번호를 잊으셨나요: 이름+학번으로 PIN을 찾아 로그인 칸에 채우고 로그인한다 */
+async function forgotPin() {
+  let name = "";
+  let hakbun = "";
+  let message = "";
+  for (;;) {
+    const box = document.createElement("div");
+    box.className = "forgot";
+    box.innerHTML = '<label for="fgName">이름</label><input id="fgName" type="text" maxlength="20" autocomplete="off">' +
+      '<label for="fgHakbun">학번</label><input id="fgHakbun" type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="예. 30512">';
+    box.querySelector("#fgName").value = name;
+    box.querySelector("#fgHakbun").value = hakbun;
+    if (message) {
+      const p = document.createElement("p");
+      p.className = "error";
+      p.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7.5"/><path d="M5.4 5.4l5.2 5.2M10.6 5.4l-5.2 5.2"/></svg><span></span>';
+      p.querySelector("span").textContent = message;
+      box.appendChild(p);
+    }
+    box.querySelector("#fgHakbun").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 5); });
+    box.addEventListener("keydown", (e) => { if (e.key === "Enter") $("dialogActions").querySelector(".primary").click(); });
+    const asked = dialog({
+      title: "비밀번호를 잊으셨나요?",
+      body: "이름과 학번을 입력하면 바로 로그인해 드려요.\n스투케어 비밀번호를 바꾸지 않은 학생만 쓸 수 있어요.",
+      extra: box,
+      buttons: [{ label: "취소", kind: "outline", value: false }, { label: "로그인", kind: "primary", value: true }],
+    });
+    box.querySelector(message ? "#fgHakbun" : "#fgName").focus();
+    if (!(await asked)) return;
+    name = box.querySelector("#fgName").value.trim();
+    hakbun = box.querySelector("#fgHakbun").value;
+    if (!name || !/^\d{5}$/.test(hakbun)) { message = "이름과 학번 5자리를 입력해 주세요."; continue; }
+    setBusy("확인하고 있어요");
+    try {
+      const found = await call("/api/recover", { hakbun, name });
+      setBusy("");
+      $("hakbun").value = found.hakbun;
+      $("pin").value = found.pin;
+      $("loginForm").requestSubmit();
+      return;
+    } catch (err) {
+      setBusy("");
+      message = err.message;
+    }
+  }
+}
+$("forgot").addEventListener("click", forgotPin);
 $("otherWay").addEventListener("click", () => call("/api/other-way", {}).catch(() => {}));
 $("logout").addEventListener("click", () => call("/api/logout", {}).then(showLogin, showLogin));
 

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -15,6 +17,7 @@ import (
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 
+	"github.com/ddagebi07/gcfldrive-client/internal/drive"
 	"github.com/ddagebi07/gcfldrive-client/internal/guard"
 )
 
@@ -44,7 +47,7 @@ type queuedNotice struct {
 // pushNotice queues a print warning for the window to show in its own screen.
 func (g *guardService) pushNotice(document string, sheets int) {
 	g.mu.Lock()
-	g.notices = append(g.notices, queuedNotice{Notice: guard.Notice{Document: document, Sheets: sheets, Max: guard.MaxSheetsPerJob}, at: time.Now()})
+	g.notices = append(g.notices, queuedNotice{Notice: guard.Notice{Document: document, Sheets: sheets, Max: guard.MaxSheets()}, at: time.Now()})
 	g.mu.Unlock()
 }
 
@@ -73,6 +76,32 @@ func (g *guardService) flushStaleNotices() {
 	}
 }
 
+// syncLimit keeps the paper limit in step with what the librarian set at /drive-admin.
+// The last value is kept on disk so a PC that boots without a network still enforces it.
+func syncLimit(server string) {
+	cache := filepath.Join(dataDir, "limit.json")
+	if raw, err := os.ReadFile(cache); err == nil {
+		var v struct{ MaxSheets int }
+		if json.Unmarshal(raw, &v) == nil {
+			guard.SetMaxSheets(v.MaxSheets)
+		}
+	}
+	if v := os.Getenv("GCFLDRIVE_SERVER"); v != "" {
+		server = v
+	}
+	api := drive.NewAPI(server)
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		if n, err := api.MaxSheets(ctx); err == nil {
+			guard.SetMaxSheets(n)
+			raw, _ := json.Marshal(map[string]int{"MaxSheets": n})
+			_ = os.WriteFile(cache, raw, 0o600)
+		}
+		cancel()
+		time.Sleep(5 * time.Minute)
+	}
+}
+
 func runService() error {
 	return svc.Run(guard.ServiceName, &guardService{limiter: guard.NewLimiter()})
 }
@@ -95,6 +124,7 @@ func (g *guardService) Execute(_ []string, requests <-chan svc.ChangeRequest, st
 	}
 	enableDebugPrivilege()
 	harden()
+	go syncLimit(drive.DefaultServer)
 
 	ln, err := listenGuard()
 	if err == nil {

@@ -1,8 +1,9 @@
-// Package drive is the 극플드라이브 client core: the server API, the PIN
-// session (kept only in memory) and the local server the UI talks to.
+// Package drive is the 극플드라이브 client core: the server API, the login
+// session (학번+PIN kept only in memory) and the local server the UI talks to.
 package drive
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -66,8 +67,8 @@ func (a *API) ServerNow() time.Time {
 	return time.Now().Add(time.Duration(a.skew.Load()) * time.Millisecond)
 }
 
-func (a *API) driveURL(pin string, tail ...string) string {
-	parts := []string{a.base, "api", "share", "anon", url.PathEscape(pin)}
+func (a *API) driveURL(hakbun, pin string, tail ...string) string {
+	parts := []string{a.base, "api", "share", "drive", url.PathEscape(hakbun), url.PathEscape(pin)}
 	for _, t := range tail {
 		parts = append(parts, url.PathEscape(t))
 	}
@@ -120,9 +121,9 @@ func errorFrom(resp *http.Response) error {
 	return &APIError{Status: resp.StatusCode, Message: msg}
 }
 
-// List returns the files held under a PIN. An unknown PIN is an *APIError with status 404.
-func (a *API) List(ctx context.Context, pin string) ([]File, error) {
-	resp, err := a.do(ctx, http.MethodGet, a.driveURL(pin), 30*time.Second)
+// List returns the files in 학번's drive. A wrong PIN is an *APIError with status 403.
+func (a *API) List(ctx context.Context, hakbun, pin string) ([]File, error) {
+	resp, err := a.do(ctx, http.MethodGet, a.driveURL(hakbun, pin), 30*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -141,8 +142,8 @@ func (a *API) List(ctx context.Context, pin string) ([]File, error) {
 
 // Fetch downloads a file for printing. The server converts office documents to
 // PDF and starts the file's 5-minute deletion clock.
-func (a *API) Fetch(ctx context.Context, pin, fileID string) (*Fetched, error) {
-	resp, err := a.do(ctx, http.MethodGet, a.driveURL(pin, "file", fileID), 3*time.Minute)
+func (a *API) Fetch(ctx context.Context, hakbun, pin, fileID string) (*Fetched, error) {
+	resp, err := a.do(ctx, http.MethodGet, a.driveURL(hakbun, pin, "file", fileID), 3*time.Minute)
 	if err != nil {
 		return nil, err
 	}
@@ -166,9 +167,9 @@ func (a *API) Fetch(ctx context.Context, pin, fileID string) (*Fetched, error) {
 	return &Fetched{Kind: kind, ContentType: resp.Header.Get("Content-Type"), Body: body}, nil
 }
 
-// Delete removes one of the files under the PIN from the server.
-func (a *API) Delete(ctx context.Context, pin, fileID string) error {
-	resp, err := a.do(ctx, http.MethodPost, a.driveURL(pin, "delete", fileID), 30*time.Second)
+// Delete removes one of the person's files from the server from the server.
+func (a *API) Delete(ctx context.Context, hakbun, pin, fileID string) error {
+	resp, err := a.do(ctx, http.MethodPost, a.driveURL(hakbun, pin, "delete", fileID), 30*time.Second)
 	if err != nil {
 		return err
 	}
@@ -177,4 +178,48 @@ func (a *API) Delete(ctx context.Context, pin, fileID string) error {
 		return errorFrom(resp)
 	}
 	return nil
+}
+
+// Recover is "비밀번호를 잊으셨나요": the server checks 학번+이름 against the school system and,
+// only for a student whose school password is still the initial one, answers with that
+// student's PIN. The school password itself never reaches this PC.
+func (a *API) Recover(ctx context.Context, hakbun, name string) (string, error) {
+	body, _ := json.Marshal(map[string]string{"hakbun": hakbun, "name": name})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.base+"/api/share/recover", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := a.hc.Do(req)
+	if err != nil {
+		return "", errors.New("서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.")
+	}
+	defer resp.Body.Close()
+	a.noteDate(resp)
+	if resp.StatusCode != http.StatusOK {
+		return "", errorFrom(resp)
+	}
+	var out struct {
+		PIN string `json:"pin"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<12)).Decode(&out); err != nil || out.PIN == "" {
+		return "", errors.New("서버 응답을 읽지 못했어요. 잠시 뒤에 다시 시도해 주세요.")
+	}
+	return out.PIN, nil
+}
+
+// MaxSheets reads the per-job paper limit the librarian set online.
+func (a *API) MaxSheets(ctx context.Context) (int, error) {
+	resp, err := a.do(ctx, http.MethodGet, a.base+"/api/share/settings", 15*time.Second)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	var out struct {
+		MaxSheets int `json:"maxSheets"`
+	}
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(resp.Body, 1<<12)).Decode(&out) != nil || out.MaxSheets < 1 || out.MaxSheets > 50 {
+		return 0, errors.New("설정을 읽지 못했어요.")
+	}
+	return out.MaxSheets, nil
 }

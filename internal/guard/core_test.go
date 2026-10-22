@@ -89,3 +89,19 @@ func TestDefaultConfigMatchesThePassword(t *testing.T) {
 		t.Fatal("default config does not match the password")
 	}
 }
+
+func TestLimitIsAdjustable(t *testing.T) {
+	t.Cleanup(func() { SetMaxSheets(DefaultMaxSheets) })
+	if OverLimit(8, 1, false) != true || OverLimit(7, 1, false) {
+		t.Fatal("default is 7")
+	}
+	SetMaxSheets(10)
+	if OverLimit(8, 1, false) || !OverLimit(11, 1, false) {
+		t.Fatal("limit not applied")
+	}
+	SetMaxSheets(0)
+	SetMaxSheets(99)
+	if MaxSheets() != 10 {
+		t.Fatal("out-of-range limits must be ignored")
+	}
+}

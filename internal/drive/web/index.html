@@ -11,13 +11,23 @@
 <!-- 1. PIN 입력 -->
 <main id="login" class="view">
   <div class="login-box">
-    <p class="subtitle">PIN으로 접속.<br>간편하게 프린트.</p>
+    <p class="subtitle">학번으로 로그인.<br>간편하게 프린트.</p>
     <h1 class="title">극플드라이브</h1>
     <form id="loginForm" novalidate autocomplete="off">
+      <div class="field" id="hakbunField">
+        <label for="hakbun">학번</label>
+        <div class="input-wrap">
+          <input id="hakbun" type="text" inputmode="numeric" maxlength="5" placeholder="예. 30512" autocomplete="off" autofocus>
+        </div>
+        <p class="error" id="hakbunError" hidden>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7.5"/><path d="M5.4 5.4l5.2 5.2M10.6 5.4l-5.2 5.2"/></svg>
+          <span></span>
+        </p>
+      </div>
       <div class="field" id="pinField">
         <label for="pin">PIN 4자리</label>
         <div class="input-wrap">
-          <input id="pin" type="password" inputmode="numeric" maxlength="4" placeholder="예. 0000" autocomplete="off" autofocus>
+          <input id="pin" type="password" inputmode="numeric" maxlength="4" placeholder="예. 0000" autocomplete="off">
           <button type="button" id="eye" class="icon-btn" aria-label="PIN 보기" tabindex="-1">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
@@ -28,6 +38,7 @@
         </p>
       </div>
       <button type="submit" id="loginBtn" class="btn primary block">로그인</button>
+      <button type="button" id="forgot" class="text-link">비밀번호를 잊으셨나요?</button>
     </form>
   </div>
   <button type="button" id="otherWay" class="other-way">
@@ -40,7 +51,7 @@
 <!-- 2. 내 파일 -->
 <main id="drive" class="view" hidden>
   <header class="drive-head">
-    <h2 class="greeting"><b>환영합니다!</b><br><span id="hello" lang="ja">ようこそ！</span></h2>
+    <h2 class="greeting"><b id="who">30512님</b>, 환영합니다!<br><span id="hello" lang="ja">ようこそ！</span></h2>
     <div class="session">
       <div class="countdown"><span>로그아웃까지</span><b id="remain">5분 00초</b></div>
       <button type="button" id="logout" class="btn primary">로그아웃

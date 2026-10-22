@@ -86,23 +86,26 @@ func TestRequestsWithoutTheWindowsTokenAreRefused(t *testing.T) {
 func TestLoginListPrintDelete(t *testing.T) {
 	r := newRig(t)
 	soon := 150 * time.Second
-	r.arch.add("1234", "a", "과제.pdf", 2*1024*1024, []byte("%PDF-body"), nil)
-	r.arch.add("1234", "b", "영어 에세이.hwpx", 20*1024, []byte("x"), &soon)
+	r.arch.add("30512", "1234", "a", "과제.pdf", 2*1024*1024, []byte("%PDF-body"), nil)
+	r.arch.add("30512", "1234", "b", "영어 에세이.hwpx", 20*1024, []byte("x"), &soon)
 
-	if code, _ := r.do("POST", "/api/login", `{"pin":"12"}`); code != 400 {
+	if code, _ := r.do("POST", "/api/login", `{"hakbun":"30512","pin":"12"}`); code != 400 {
 		t.Errorf("short pin: %d", code)
 	}
-	if code, body := r.do("POST", "/api/login", `{"pin":"9999"}`); code != 404 || !strings.Contains(body, "보관 중인 파일이 없어요") {
-		t.Errorf("unknown pin: %d %s", code, body)
+	if code, _ := r.do("POST", "/api/login", `{"hakbun":"123","pin":"1234"}`); code != 400 {
+		t.Errorf("short hakbun: %d", code)
 	}
-	code, body := r.do("POST", "/api/login", `{"pin":"1234"}`)
+	if code, body := r.do("POST", "/api/login", `{"hakbun":"30512","pin":"9999"}`); code != 403 || !strings.Contains(body, "PIN이 맞지 않아요") {
+		t.Errorf("wrong pin: %d %s", code, body)
+	}
+	code, body := r.do("POST", "/api/login", `{"hakbun":"30512","pin":"1234"}`)
 	if code != 200 || !strings.Contains(body, "과제 [PDF,2MB]") || !strings.Contains(body, "영어 에세이 [HWPX,20KB]") {
 		t.Fatalf("login: %d %s", code, body)
 	}
 	if !strings.Contains(body, `"urgent":true`) {
 		t.Errorf("deletion clock not flagged: %s", body)
 	}
-	if _, state := r.do("GET", "/api/state", ""); !strings.Contains(state, `"loggedIn":true`) || !strings.Contains(state, `"maxSheets":7`) {
+	if _, state := r.do("GET", "/api/state", ""); !strings.Contains(state, `"loggedIn":true`) || !strings.Contains(state, `"maxSheets":7`) || !strings.Contains(state, `"hakbun":"30512"`) {
 		t.Errorf("state: %s", state)
 	}
 
@@ -127,8 +130,8 @@ func TestLoginListPrintDelete(t *testing.T) {
 
 func TestLogoutForgetsPinAndBlobs(t *testing.T) {
 	r := newRig(t)
-	r.arch.add("1234", "a", "a.pdf", 10, []byte("%PDF"), nil)
-	r.do("POST", "/api/login", `{"pin":"1234"}`)
+	r.arch.add("30512", "1234", "a", "a.pdf", 10, []byte("%PDF"), nil)
+	r.do("POST", "/api/login", `{"hakbun":"30512","pin":"1234"}`)
 	_, body := r.do("POST", "/api/print", `{"id":"a","name":"a"}`)
 	blob := body[strings.Index(body, `"blob":"`)+8:]
 	blob = blob[:strings.Index(blob, `"`)]
@@ -145,31 +148,31 @@ func TestSessionExpiresWhenIdleAndTouchExtends(t *testing.T) {
 	now := time.Now()
 	s := NewSession(5 * time.Minute)
 	s.now = func() time.Time { return now }
-	s.Login("1234")
+	s.Login("30512", "1234")
 	now = now.Add(4*time.Minute + 58*time.Second)
 	if got := s.Remaining(); got != 2*time.Second {
 		t.Errorf("remaining %v", got)
 	}
 	s.Touch()
 	now = now.Add(4 * time.Minute)
-	if _, ok := s.PIN(); !ok {
+	if !s.SignedIn() {
 		t.Error("touch should extend the session")
 	}
 	now = now.Add(2 * time.Minute)
-	if _, ok := s.PIN(); ok {
+	if s.SignedIn() {
 		t.Error("should have expired")
 	}
 }
 
 func TestOtherWayLogsOutAndTellsTheWindow(t *testing.T) {
 	r := newRig(t)
-	r.arch.add("1234", "a", "a.pdf", 10, nil, nil)
-	r.do("POST", "/api/login", `{"pin":"1234"}`)
+	r.arch.add("30512", "1234", "a", "a.pdf", 10, nil, nil)
+	r.do("POST", "/api/login", `{"hakbun":"30512","pin":"1234"}`)
 	r.do("POST", "/api/other-way", "")
 	if r.host.otherWay != 1 {
 		t.Error("window not told")
 	}
-	if _, ok := r.sess.PIN(); ok {
+	if r.sess.SignedIn() {
 		t.Error("still signed in")
 	}
 }
@@ -185,6 +188,43 @@ func TestAdminNeedsThePassword(t *testing.T) {
 	time.Sleep(600 * time.Millisecond)
 	if r.host.exited != 1 {
 		t.Error("window should exit after maintenance")
+	}
+}
+
+func TestRecoverGivesThePinOnlyToInitialPasswordStudents(t *testing.T) {
+	r := newRig(t)
+	r.arch.add("30512", "1343", "a", "a.pdf", 10, nil, nil)
+	r.arch.initial["30512"] = "홍길동"
+	code, body := r.do("POST", "/api/recover", `{"hakbun":"30512","name":"홍길동"}`)
+	if code != 200 || !strings.Contains(body, `"pin":"1343"`) {
+		t.Fatalf("recover: %d %s", code, body)
+	}
+	if r.sess.SignedIn() {
+		t.Error("recover alone must not sign in; the page signs in with the returned PIN")
+	}
+	if code, body := r.do("POST", "/api/recover", `{"hakbun":"30512","name":"다른사람"}`); code != 404 || strings.Contains(body, "1343") {
+		t.Errorf("wrong name: %d %s", code, body)
+	}
+	if code, _ := r.do("POST", "/api/recover", `{"hakbun":"30512","name":""}`); code != 400 {
+		t.Errorf("empty name: %d", code)
+	}
+}
+
+func TestLimitFollowsTheServer(t *testing.T) {
+	arch := newFakeArchive()
+	t.Cleanup(arch.srv.Close)
+	arch.maxSheet = 12
+	srv := NewServer(NewAPI(arch.srv.URL), NewSession(SessionTimeout), &fakeHost{}, nil)
+	if srv.maxSheets.Load() != DefaultMaxSheets {
+		t.Fatal("starts at the default")
+	}
+	go srv.SyncSettings(time.Hour)
+	deadline := time.Now().Add(3 * time.Second)
+	for srv.maxSheets.Load() != 12 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if srv.maxSheets.Load() != 12 {
+		t.Fatal("limit not synced")
 	}
 }
 

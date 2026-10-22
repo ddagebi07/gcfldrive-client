@@ -10,12 +10,13 @@ import (
 // SessionTimeout is how long a login survives without any use of the screen.
 const SessionTimeout = 5 * time.Minute
 
-// Session is the one PIN entered on this PC. The PIN lives only here, in
-// memory; the web page never holds it.
+// Session is the one signed-in student of this PC. 학번 and PIN live only here,
+// in memory.
 type Session struct {
 	mu       sync.Mutex
 	timeout  time.Duration
 	now      func() time.Time
+	hakbun   string
 	pin      string
 	last     time.Time
 	blobs    map[string]*Blob
@@ -37,20 +38,24 @@ func NewSession(timeout time.Duration) *Session {
 // OnLogout registers a callback run (outside the lock) every time a login ends.
 func (s *Session) OnLogout(f func()) { s.onLogout = f }
 
-func (s *Session) Login(pin string) {
+func (s *Session) Login(hakbun, pin string) {
 	s.mu.Lock()
-	s.pin, s.last = pin, s.now()
+	s.hakbun, s.pin, s.last = hakbun, pin, s.now()
 	s.blobs = map[string]*Blob{}
 	s.mu.Unlock()
 }
 
-// PIN returns the PIN in use, or ok=false if nobody is signed in (or it just expired).
-func (s *Session) PIN() (pin string, ok bool) {
+// Credentials returns the signed-in student, or ok=false if nobody is (or the
+// login just expired).
+func (s *Session) Credentials() (hakbun, pin string, ok bool) {
 	s.expireIfIdle()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.pin, s.pin != ""
+	return s.hakbun, s.pin, s.pin != ""
 }
+
+// SignedIn reports whether somebody is signed in.
+func (s *Session) SignedIn() bool { _, _, ok := s.Credentials(); return ok }
 
 // Touch records use of the screen and pushes the logout time back.
 func (s *Session) Touch() {
@@ -85,7 +90,7 @@ func (s *Session) expireIfIdle() {
 func (s *Session) Logout() {
 	s.mu.Lock()
 	was := s.pin != ""
-	s.pin = ""
+	s.hakbun, s.pin = "", ""
 	for _, b := range s.blobs {
 		clear(b.Body)
 	}

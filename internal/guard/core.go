@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -20,7 +21,7 @@ const (
 	ServiceName        = "GCFLDriveGuard"
 	ServiceDisplayName = "극플드라이브 보호 서비스"
 	PipePath           = `\\.\pipe\gcfldrive-guard`
-	MaxSheetsPerJob    = 7 // 학교 방침: 1회 출력 종이 7장까지
+	DefaultMaxSheets   = 7 // 학교 방침: 1회 출력 종이 7장까지(사서 선생님이 온라인으로 바꿀 수 있다)
 	MinPasswordLength  = 8
 	pbkdf2Iterations   = 210000
 )
@@ -128,6 +129,20 @@ func (l *Limiter) Record(ok bool) (penalty time.Duration) {
 	return time.Second
 }
 
+var maxSheets atomic.Int32
+
+func init() { maxSheets.Store(DefaultMaxSheets) }
+
+// MaxSheets is the current per-job paper limit.
+func MaxSheets() int { return int(maxSheets.Load()) }
+
+// SetMaxSheets applies a limit read from the server (ignored when out of range).
+func SetMaxSheets(n int) {
+	if n >= 1 && n <= 50 {
+		maxSheets.Store(int32(n))
+	}
+}
+
 // Sheets estimates the paper a print job uses. totalPages are the document's
 // pages as the spooler counts them, copies the number of copies and duplex
 // whether it prints on both sides.
@@ -147,5 +162,5 @@ func Sheets(totalPages, copies int, duplex bool) int {
 
 // OverLimit is true when a job uses more paper than the school allows.
 func OverLimit(totalPages, copies int, duplex bool) bool {
-	return Sheets(totalPages, copies, duplex) > MaxSheetsPerJob
+	return Sheets(totalPages, copies, duplex) > MaxSheets()
 }
