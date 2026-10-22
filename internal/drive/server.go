@@ -112,7 +112,6 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("POST /api/login", s.handleLogin)
 	mux.HandleFunc("POST /api/logout", s.handleLogout)
-	mux.HandleFunc("POST /api/recover", s.handleRecover)
 	mux.HandleFunc("GET /api/state", s.handleState)
 	mux.HandleFunc("POST /api/activity", s.handleActivity)
 	mux.HandleFunc("GET /api/files", s.handleFiles)
@@ -237,29 +236,6 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	s.sess.Login(in.Hakbun, in.PIN)
 	writeJSON(w, http.StatusOK, map[string]any{"hakbun": in.Hakbun, "files": s.view(files)})
-}
-
-// handleRecover answers "비밀번호를 잊으셨나요": the page gets the student's PIN back, fills the
-// login form with it and signs in the normal way.
-func (s *Server) handleRecover(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Hakbun string `json:"hakbun"`
-		Name   string `json:"name"`
-	}
-	if !readBody(w, r, &in) {
-		return
-	}
-	in.Name = strings.TrimSpace(in.Name)
-	if !hakbunRe.MatchString(in.Hakbun) || in.Name == "" || len([]rune(in.Name)) > 20 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "이름과 학번 5자리를 입력해 주세요."})
-		return
-	}
-	pin, err := s.api.Recover(r.Context(), in.Hakbun, in.Name)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"hakbun": in.Hakbun, "pin": pin})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {

@@ -127,53 +127,6 @@ $("loginForm").addEventListener("submit", async (e) => {
   }
 });
 
-/* 비밀번호를 잊으셨나요: 이름+학번으로 PIN을 찾아 로그인 칸에 채우고 로그인한다 */
-async function forgotPin() {
-  let name = "";
-  let hakbun = "";
-  let message = "";
-  for (;;) {
-    const box = document.createElement("div");
-    box.className = "forgot";
-    box.innerHTML = '<label for="fgName">이름</label><input id="fgName" type="text" maxlength="20" autocomplete="off">' +
-      '<label for="fgHakbun">학번</label><input id="fgHakbun" type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="예. 30512">';
-    box.querySelector("#fgName").value = name;
-    box.querySelector("#fgHakbun").value = hakbun;
-    if (message) {
-      const p = document.createElement("p");
-      p.className = "error";
-      p.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7.5"/><path d="M5.4 5.4l5.2 5.2M10.6 5.4l-5.2 5.2"/></svg><span></span>';
-      p.querySelector("span").textContent = message;
-      box.appendChild(p);
-    }
-    box.querySelector("#fgHakbun").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 5); });
-    box.addEventListener("keydown", (e) => { if (e.key === "Enter") $("dialogActions").querySelector(".primary").click(); });
-    const asked = dialog({
-      title: "비밀번호를 잊으셨나요?",
-      body: "이름과 학번을 입력하면 바로 로그인해 드려요.\n스투케어 비밀번호를 바꾸지 않은 학생만 쓸 수 있어요.",
-      extra: box,
-      buttons: [{ label: "취소", kind: "outline", value: false }, { label: "로그인", kind: "primary", value: true }],
-    });
-    box.querySelector(message ? "#fgHakbun" : "#fgName").focus();
-    if (!(await asked)) return;
-    name = box.querySelector("#fgName").value.trim();
-    hakbun = box.querySelector("#fgHakbun").value;
-    if (!name || !/^\d{5}$/.test(hakbun)) { message = "이름과 학번 5자리를 입력해 주세요."; continue; }
-    setBusy("확인하고 있어요");
-    try {
-      const found = await call("/api/recover", { hakbun, name });
-      setBusy("");
-      $("hakbun").value = found.hakbun;
-      $("pin").value = found.pin;
-      $("loginForm").requestSubmit();
-      return;
-    } catch (err) {
-      setBusy("");
-      message = err.message;
-    }
-  }
-}
-$("forgot").addEventListener("click", forgotPin);
 $("otherWay").addEventListener("click", () => call("/api/other-way", {}).catch(() => {}));
 $("logout").addEventListener("click", () => call("/api/logout", {}).then(showLogin, showLogin));
 

@@ -13,7 +13,6 @@ import (
 type fakeArchive struct {
 	mu       sync.Mutex
 	pins     map[string]string // 학번 -> PIN
-	initial  map[string]string // 학번 -> 이름, for students still on the initial school password
 	files    map[string][]File // by 학번
 	bodies   map[string][]byte
 	deleted  []string
@@ -22,7 +21,7 @@ type fakeArchive struct {
 }
 
 func newFakeArchive() *fakeArchive {
-	f := &fakeArchive{pins: map[string]string{}, initial: map[string]string{}, files: map[string][]File{}, bodies: map[string][]byte{}, maxSheet: 7}
+	f := &fakeArchive{pins: map[string]string{}, files: map[string][]File{}, bodies: map[string][]byte{}, maxSheet: 7}
 	f.srv = httptest.NewServer(http.HandlerFunc(f.serve))
 	return f
 }
@@ -55,15 +54,6 @@ func (f *fakeArchive) serve(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/api/share/settings":
 		jsonOut(200, map[string]int{"maxSheets": f.maxSheet})
-		return
-	case "/api/share/recover":
-		var in struct{ Hakbun, Name string }
-		_ = json.NewDecoder(r.Body).Decode(&in)
-		if f.initial[in.Hakbun] != in.Name || in.Name == "" {
-			errOut(404, "학번과 이름이 맞는 학생을 찾지 못했어요. 비밀번호를 바꾼 학생은 이 방법을 쓸 수 없어요.")
-			return
-		}
-		jsonOut(200, map[string]string{"status": "ok", "pin": f.pins[in.Hakbun]})
 		return
 	}
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/") // api share drive <학번> <pin> [file|delete <id>]

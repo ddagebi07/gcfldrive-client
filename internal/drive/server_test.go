@@ -191,25 +191,6 @@ func TestAdminNeedsThePassword(t *testing.T) {
 	}
 }
 
-func TestRecoverGivesThePinOnlyToInitialPasswordStudents(t *testing.T) {
-	r := newRig(t)
-	r.arch.add("30512", "1343", "a", "a.pdf", 10, nil, nil)
-	r.arch.initial["30512"] = "홍길동"
-	code, body := r.do("POST", "/api/recover", `{"hakbun":"30512","name":"홍길동"}`)
-	if code != 200 || !strings.Contains(body, `"pin":"1343"`) {
-		t.Fatalf("recover: %d %s", code, body)
-	}
-	if r.sess.SignedIn() {
-		t.Error("recover alone must not sign in; the page signs in with the returned PIN")
-	}
-	if code, body := r.do("POST", "/api/recover", `{"hakbun":"30512","name":"다른사람"}`); code != 404 || strings.Contains(body, "1343") {
-		t.Errorf("wrong name: %d %s", code, body)
-	}
-	if code, _ := r.do("POST", "/api/recover", `{"hakbun":"30512","name":""}`); code != 400 {
-		t.Errorf("empty name: %d", code)
-	}
-}
-
 func TestLimitFollowsTheServer(t *testing.T) {
 	arch := newFakeArchive()
 	t.Cleanup(arch.srv.Close)

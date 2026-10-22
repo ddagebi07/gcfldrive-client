@@ -3,7 +3,6 @@
 package drive
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -178,34 +177,6 @@ func (a *API) Delete(ctx context.Context, hakbun, pin, fileID string) error {
 		return errorFrom(resp)
 	}
 	return nil
-}
-
-// Recover is "비밀번호를 잊으셨나요": the server checks 학번+이름 against the school system and,
-// only for a student whose school password is still the initial one, answers with that
-// student's PIN. The school password itself never reaches this PC.
-func (a *API) Recover(ctx context.Context, hakbun, name string) (string, error) {
-	body, _ := json.Marshal(map[string]string{"hakbun": hakbun, "name": name})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.base+"/api/share/recover", bytes.NewReader(body))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := a.hc.Do(req)
-	if err != nil {
-		return "", errors.New("서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.")
-	}
-	defer resp.Body.Close()
-	a.noteDate(resp)
-	if resp.StatusCode != http.StatusOK {
-		return "", errorFrom(resp)
-	}
-	var out struct {
-		PIN string `json:"pin"`
-	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<12)).Decode(&out); err != nil || out.PIN == "" {
-		return "", errors.New("서버 응답을 읽지 못했어요. 잠시 뒤에 다시 시도해 주세요.")
-	}
-	return out.PIN, nil
 }
 
 // MaxSheets reads the per-job paper limit the librarian set online.

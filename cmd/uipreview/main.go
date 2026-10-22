@@ -5,7 +5,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -48,15 +47,6 @@ func main() {
 		switch {
 		case r.URL.Path == "/api/share/settings":
 			fmt.Fprint(w, `{"maxSheets":7}`)
-		case r.URL.Path == "/api/share/recover":
-			var in struct{ Hakbun, Name string }
-			_ = json.NewDecoder(r.Body).Decode(&in)
-			if in.Hakbun == "30512" && in.Name == "홍길동" {
-				fmt.Fprint(w, `{"status":"ok","pin":"1234"}`)
-				return
-			}
-			w.WriteHeader(404)
-			fmt.Fprint(w, `{"error":"학번과 이름이 맞는 학생을 찾지 못했어요. 비밀번호를 바꾼 학생은 이 방법을 쓸 수 없어요."}`)
 		case strings.Contains(r.URL.Path, "/file/") && os.Getenv("UIPREVIEW_PDF") != "":
 			body, _ := os.ReadFile(os.Getenv("UIPREVIEW_PDF"))
 			w.Header().Set("X-Drive-Kind", "pdf")
