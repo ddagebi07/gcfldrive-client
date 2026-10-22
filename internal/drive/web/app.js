@@ -344,6 +344,83 @@ function printNow() {
   });
 }
 
+/* ---------- 대기 화면 캐러셀 (급식 + 배너) ---------- */
+const car = { slides: [], index: 0, timer: null, loadedAt: 0, loading: false };
+const SLIDE_MS = 7000;
+const RELOAD_MS = 10 * 60 * 1000;
+
+function renderCarousel() {
+  const box = $("carousel");
+  const track = $("carTrack");
+  const dots = $("carDots");
+  track.replaceChildren();
+  dots.replaceChildren();
+  box.classList.toggle("on", car.slides.length > 0);
+  car.slides.forEach((s, i) => {
+    const el = document.createElement("div");
+    el.className = "car-slide " + s.kind;
+    if (s.kind === "image") {
+      const img = document.createElement("img");
+      img.alt = "안내";
+      img.src = s.src;
+      el.appendChild(img);
+    } else {
+      const head = document.createElement("div");
+      head.className = "car-head";
+      head.innerHTML = '<span class="car-chip"></span><span class="car-date"></span>';
+      head.querySelector(".car-chip").textContent = s.label;
+      head.querySelector(".car-date").textContent = s.date;
+      const list = document.createElement("ul");
+      const shown = s.dishes.slice(0, 10);
+      list.className = "car-dishes" + (shown.length <= 4 ? " one" : "");
+      shown.forEach((d) => { const li = document.createElement("li"); li.textContent = d; li.title = d; list.appendChild(li); });
+      el.append(head, list);
+      if (s.dishes.length > shown.length) {
+        const more = document.createElement("div");
+        more.className = "car-more";
+        more.textContent = `…외 ${s.dishes.length - shown.length}가지`;
+        el.appendChild(more);
+      }
+    }
+    track.appendChild(el);
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.setAttribute("aria-label", `${i + 1}번째 보기`);
+    dot.addEventListener("click", () => { showSlide(i); restartCarouselTimer(); });
+    dots.appendChild(dot);
+  });
+  showSlide(Math.min(car.index, Math.max(0, car.slides.length - 1)));
+}
+function showSlide(i) {
+  car.index = i;
+  $("carTrack").style.transform = `translateX(${-100 * i}%)`;
+  [...$("carDots").children].forEach((d, n) => d.classList.toggle("on", n === i));
+  $("carousel").classList.toggle("has-image-active", car.slides[i] && car.slides[i].kind === "image");
+}
+function restartCarouselTimer() {
+  clearInterval(car.timer);
+  car.timer = null;
+  if (car.slides.length > 1) car.timer = setInterval(() => showSlide((car.index + 1) % car.slides.length), SLIDE_MS);
+}
+async function ensureCarousel() {
+  if (car.loading || (car.slides.length && Date.now() - car.loadedAt < RELOAD_MS)) {
+    if (!car.timer) restartCarouselTimer();
+    return;
+  }
+  car.loading = true;
+  try {
+    const { slides } = await call("/api/banner");
+    car.slides = slides || [];
+    car.loadedAt = Date.now();
+    renderCarousel();
+    restartCarouselTimer();
+  } catch (_) { /* 급식 정보를 못 받아도 로그인은 그대로 쓸 수 있다 */ } finally { car.loading = false; }
+}
+function stopCarousel() {
+  clearInterval(car.timer);
+  car.timer = null;
+}
+
 /* ---------- 상태·자동 로그아웃 ---------- */
 let lastActivity = 0;
 function noteActivity() {
@@ -363,6 +440,7 @@ async function pollState() {
     const st = await call("/api/state");
     maxSheets = st.maxSheets || maxSheets;
     document.body.classList.toggle("full", !!st.fullscreen);
+    if (st.fullscreen) ensureCarousel(); else stopCarousel();
     if (!st.loggedIn && !$("drive").hidden) showLogin();
     if (st.loggedIn) {
       $("remain").textContent = formatRemain(st.remainingMs);

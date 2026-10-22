@@ -64,6 +64,9 @@ type Server struct {
 	fullscreen bool
 	maxSheets  atomic.Int32
 
+	menus   menuCache
+	banners bannerCache
+
 	Addr string // host:port once listening
 }
 
@@ -119,6 +122,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/blob/{id}", s.handleBlob)
 	mux.HandleFunc("POST /api/blob/{id}/drop", s.handleBlobDrop)
 	mux.HandleFunc("POST /api/delete", s.handleDelete)
+	mux.HandleFunc("GET /api/banner", s.handleBanner)
+	mux.HandleFunc("GET /api/banner/img/{id}", s.handleBannerImage)
 	mux.HandleFunc("POST /api/other-way", s.handleOtherWay)
 	mux.HandleFunc("POST /api/notice-done", func(w http.ResponseWriter, r *http.Request) { s.host.NoticeDone(); w.WriteHeader(http.StatusNoContent) })
 	mux.HandleFunc("POST /api/admin/check", s.handleAdmin("check"))
@@ -408,4 +413,82 @@ func (s *Server) proxySite(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(resp.StatusCode)
 	_, _ = io.Copy(w, resp.Body)
+}
+
+// ---- 대기 화면 캐러셀: 앞으로의 급식 두 끼 + 사서 선생님의 JPG 배너 ----------------------------
+
+type bannerCache struct {
+	mu     sync.Mutex
+	images map[string][]byte
+}
+
+func (c *bannerCache) get(id string) ([]byte, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	b, ok := c.images[id]
+	return b, ok
+}
+
+// keep stores the current banner images and forgets the ones the librarian removed.
+func (c *bannerCache) keep(id string, data []byte) {
+	c.mu.Lock()
+	if c.images == nil {
+		c.images = map[string][]byte{}
+	}
+	c.images[id] = data
+	c.mu.Unlock()
+}
+
+func (c *bannerCache) retain(ids map[string]bool) {
+	c.mu.Lock()
+	for id := range c.images {
+		if !ids[id] {
+			delete(c.images, id)
+		}
+	}
+	c.mu.Unlock()
+}
+
+type slideView struct {
+	Kind   string   `json:"kind"` // meal | image
+	Label  string   `json:"label,omitempty"`
+	Date   string   `json:"date,omitempty"`
+	Dishes []string `json:"dishes,omitempty"`
+	Src    string   `json:"src,omitempty"`
+}
+
+func (s *Server) handleBanner(w http.ResponseWriter, r *http.Request) {
+	slides := []slideView{}
+	meals, _ := NextMeals(s.api.ServerNow(), 2, func(date string) (map[string][]string, error) {
+		return s.menus.get(date, 30*time.Minute, func(d string) (map[string][]string, error) { return s.api.MealMenu(r.Context(), d) })
+	})
+	for _, m := range meals {
+		slides = append(slides, slideView{Kind: "meal", Label: m.Label, Date: m.Date, Dishes: m.Dishes})
+	}
+	if list, err := s.api.Banners(r.Context()); err == nil {
+		keep := map[string]bool{}
+		for _, b := range list {
+			if _, ok := s.banners.get(b.ID); !ok {
+				data, err := s.api.BannerImage(r.Context(), b.ID)
+				if err != nil {
+					continue
+				}
+				s.banners.keep(b.ID, data)
+			}
+			keep[b.ID] = true
+			slides = append(slides, slideView{Kind: "image", Src: "/api/banner/img/" + b.ID})
+		}
+		s.banners.retain(keep)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"slides": slides})
+}
+
+func (s *Server) handleBannerImage(w http.ResponseWriter, r *http.Request) {
+	data, ok := s.banners.get(r.PathValue("id"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	_, _ = w.Write(data)
 }

@@ -17,11 +17,14 @@ type fakeArchive struct {
 	bodies   map[string][]byte
 	deleted  []string
 	maxSheet int
+	menus    map[string]map[string][]string // yyyymmdd -> menu
+	banners  []string                       // ids, in order
+	images   map[string][]byte
 	srv      *httptest.Server
 }
 
 func newFakeArchive() *fakeArchive {
-	f := &fakeArchive{pins: map[string]string{}, files: map[string][]File{}, bodies: map[string][]byte{}, maxSheet: 7}
+	f := &fakeArchive{pins: map[string]string{}, files: map[string][]File{}, bodies: map[string][]byte{}, maxSheet: 7, menus: map[string]map[string][]string{}, images: map[string][]byte{}}
 	f.srv = httptest.NewServer(http.HandlerFunc(f.serve))
 	return f
 }
@@ -51,6 +54,27 @@ func (f *fakeArchive) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	errOut := func(code int, msg string) { jsonOut(code, map[string]string{"error": msg}) }
 
+	switch {
+	case r.URL.Path == "/api/meal-menu":
+		jsonOut(200, map[string]any{"success": true, "meals": f.menus[r.URL.Query().Get("date")]})
+		return
+	case r.URL.Path == "/api/share/banners":
+		list := []map[string]string{}
+		for _, id := range f.banners {
+			list = append(list, map[string]string{"id": id, "url": "/api/share/banners/" + id + ".jpg"})
+		}
+		jsonOut(200, map[string]any{"banners": list})
+		return
+	case strings.HasPrefix(r.URL.Path, "/api/share/banners/"):
+		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/share/banners/"), ".jpg")
+		if data, ok := f.images[id]; ok {
+			w.Header().Set("Content-Type", "image/jpeg")
+			_, _ = w.Write(data)
+			return
+		}
+		http.NotFound(w, r)
+		return
+	}
 	switch r.URL.Path {
 	case "/api/share/settings":
 		jsonOut(200, map[string]int{"maxSheets": f.maxSheet})

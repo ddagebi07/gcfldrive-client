@@ -140,6 +140,28 @@ body.full .other-way{font-size:16px;left:28px;bottom:24px;padding:11px 20px 11px
 body.full .notice-bottom{display:block;bottom:28px;font-size:14px}
 body.full .powered{right:34px;bottom:26px}
 
+/* --- 대기 화면 캐러셀: 앞으로의 급식 두 끼 + 사서 선생님의 배너 --- */
+.carousel{display:none;position:absolute;right:34px;bottom:70px;width:380px;height:238px;overflow:hidden;background:#fff;border-radius:12px;
+  box-shadow:0 2px 14px rgba(30,33,36,.16);user-select:none}
+body.full .carousel.on{display:block}
+.car-track{display:flex;height:100%;transition:transform .55s cubic-bezier(.4,0,.2,1)}
+.car-slide{flex:0 0 100%;height:100%;min-width:0;padding:16px 20px 32px;overflow:hidden}
+.car-slide.image{padding:0;background:var(--gray-10)}
+.car-slide.image img{display:block;width:100%;height:100%;object-fit:cover}
+.car-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.car-chip{padding:3px 12px;border-radius:999px;background:var(--primary);color:#fff;font-size:15px;font-weight:700}
+.car-date{font-size:13px;color:var(--gray-60)}
+.car-dishes{margin:0;padding:0;list-style:none;columns:2;column-gap:18px;font-size:14px;line-height:1.55;color:var(--gray-90)}
+.car-dishes.one{columns:1}
+.car-dishes li{break-inside:avoid;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.car-more{margin-top:2px;font-size:13px;color:var(--gray-50)}
+.car-dots{position:absolute;left:0;right:0;bottom:10px;display:flex;justify-content:center;gap:7px}
+.car-dots button{width:8px;height:8px;padding:0;border:0;border-radius:50%;background:rgba(30,33,36,.28);cursor:pointer}
+.car-dots button.on{width:22px;border-radius:4px;background:var(--primary)}
+.carousel.has-image-active .car-dots button{background:rgba(255,255,255,.7)}
+.carousel.has-image-active .car-dots button.on{background:#fff}
+@media (prefers-reduced-motion:reduce){.car-track{transition:none}}
+
 /* --- 출력 --- */
 #printArea,#hwpHost{position:fixed;left:-99999px;top:0}
 #hwpHost{width:1200px;height:900px}

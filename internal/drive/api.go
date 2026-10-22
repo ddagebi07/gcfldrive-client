@@ -194,3 +194,55 @@ func (a *API) MaxSheets(ctx context.Context) (int, error) {
 	}
 	return out.MaxSheets, nil
 }
+
+// MealMenu is one day's menu from the archive server (which asks NEIS and caches it):
+// {끼니: [메뉴, ...]}. A day without school meals is an empty map.
+func (a *API) MealMenu(ctx context.Context, date string) (map[string][]string, error) {
+	resp, err := a.do(ctx, http.MethodGet, a.base+"/api/meal-menu?date="+url.QueryEscape(date), 20*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Meals map[string][]string `json:"meals"`
+	}
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(resp.Body, 1<<18)).Decode(&out) != nil {
+		return nil, errors.New("급식 정보를 읽지 못했어요.")
+	}
+	return out.Meals, nil
+}
+
+// Banner is a JPG the librarian put on the carousel.
+type Banner struct {
+	ID  string `json:"id"`
+	URL string `json:"url"`
+}
+
+// Banners lists the carousel images in the order they were added.
+func (a *API) Banners(ctx context.Context) ([]Banner, error) {
+	resp, err := a.do(ctx, http.MethodGet, a.base+"/api/share/banners", 20*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Banners []Banner `json:"banners"`
+	}
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(resp.Body, 1<<18)).Decode(&out) != nil {
+		return nil, errors.New("배너를 읽지 못했어요.")
+	}
+	return out.Banners, nil
+}
+
+// BannerImage downloads one carousel image.
+func (a *API) BannerImage(ctx context.Context, id string) ([]byte, error) {
+	resp, err := a.do(ctx, http.MethodGet, a.base+"/api/share/banners/"+url.PathEscape(id)+".jpg", 30*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("배너 이미지를 받지 못했어요.")
+	}
+	return io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+}

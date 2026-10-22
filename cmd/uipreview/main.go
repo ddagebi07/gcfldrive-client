@@ -6,6 +6,9 @@ package main
 
 import (
 	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -45,6 +48,19 @@ func main() {
 	arch := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
+		case r.URL.Path == "/api/meal-menu":
+			fmt.Fprint(w, `{"success":true,"meals":{"중식":["잡곡밥","미역국","닭갈비","콩나물무침","배추김치","깍두기","과일샐러드","요구르트"],"석식":["카레라이스","우동국물","군만두","단무지","포기김치"]}}`)
+		case r.URL.Path == "/api/share/banners":
+			fmt.Fprint(w, `{"banners":[{"id":"aaaaaaaaaaaaaaaa","url":"/api/share/banners/aaaaaaaaaaaaaaaa.jpg"}]}`)
+		case strings.HasPrefix(r.URL.Path, "/api/share/banners/"):
+			w.Header().Set("Content-Type", "image/jpeg")
+			img := image.NewRGBA(image.Rect(0, 0, 720, 450))
+			for y := 0; y < 450; y++ {
+				for x := 0; x < 720; x++ {
+					img.Set(x, y, color.RGBA{uint8(40 + x/6), uint8(90 + y/6), 220, 255})
+				}
+			}
+			_ = jpeg.Encode(w, img, nil)
 		case r.URL.Path == "/api/share/settings":
 			fmt.Fprint(w, `{"maxSheets":7}`)
 		case strings.Contains(r.URL.Path, "/file/") && os.Getenv("UIPREVIEW_PDF") != "":
