@@ -143,7 +143,7 @@ body.full .powered{right:34px;bottom:26px}
 /* --- 대기 화면 캐러셀: 앞으로의 급식 두 끼 + 사서 선생님의 배너 --- */
 .carousel{display:none;position:absolute;right:34px;bottom:70px;width:380px;height:238px;overflow:hidden;background:#fff;border-radius:12px;
   box-shadow:0 2px 14px rgba(30,33,36,.16);user-select:none}
-body.full .carousel.on{display:block}
+.carousel.on{display:block}
 .car-track{display:flex;height:100%;transition:transform .55s cubic-bezier(.4,0,.2,1)}
 .car-slide{flex:0 0 100%;height:100%;min-width:0;padding:16px 20px 32px;overflow:hidden}
 .car-slide.image{padding:0;background:var(--gray-10)}
@@ -161,6 +161,14 @@ body.full .carousel.on{display:block}
 .carousel.has-image-active .car-dots button{background:rgba(255,255,255,.7)}
 .carousel.has-image-active .car-dots button.on{background:#fff}
 @media (prefers-reduced-motion:reduce){.car-track{transition:none}}
+/* 좁은 화면(창 모드 904px, 1024px 모니터 등): 로그인은 왼쪽, 캐러셀은 오른쪽 가운데에 나란히 */
+@media (max-width:1180px){
+  #login:has(.carousel.on) .login-box{margin-right:372px}
+  body.full #login:has(.carousel.on) .login-box{margin-right:420px}
+  .carousel{right:48px;bottom:auto;top:50%;width:340px;height:213px;transform:translateY(-50%)}
+  .carousel .car-slide{padding:14px 18px 30px}
+  .carousel .car-dishes{font-size:13px}
+}
 
 /* --- 출력 --- */
 #printArea,#hwpHost{position:fixed;left:-99999px;top:0}

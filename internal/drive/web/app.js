@@ -445,7 +445,7 @@ async function pollState() {
     const st = await call("/api/state");
     maxSheets = st.maxSheets || maxSheets;
     document.body.classList.toggle("full", !!st.fullscreen);
-    if (st.fullscreen) ensureCarousel(); else stopCarousel();
+    ensureCarousel(); // 창 모드에서도 늘 보인다
     if (!st.loggedIn && !$("drive").hidden) showLogin();
     if (st.loggedIn) {
       $("remain").textContent = formatRemain(st.remainingMs);

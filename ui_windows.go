@@ -34,6 +34,7 @@ var (
 	procMessageBox        = user32.NewProc("MessageBoxW")
 	procGetWindowLongRead = user32.NewProc(windowLongReadName())
 	procIsIconic          = user32.NewProc("IsIconic")
+	procGetForeground     = user32.NewProc("GetForegroundWindow")
 	kernel32              = windows.NewLazySystemDLL("kernel32.dll")
 	procGetTickCount      = kernel32.NewProc("GetTickCount")
 )
@@ -75,6 +76,8 @@ const (
 	clientWidth  = 904 // the size of the screens we were given
 	clientHeight = 627
 
+	// After this long without input the window comes up in front of other programs.
+	raiseAfter = 30 * time.Second
 	// A student who walks away from the PC is asked to use 극플드라이브 after this long.
 	nudgeAfter = 3 * time.Minute
 	// After "다른 방식 이용" the nudge waits this long.
@@ -203,18 +206,45 @@ func (h *uiHost) idle() time.Duration {
 // watch runs the screen-saver-like nudge: when nobody has touched the PC for a
 // while and nobody is signed in, the PIN screen takes the whole screen.
 func (h *uiHost) watch(sess *drive.Session) {
+	raised := false // once per idle stretch, so it does not fight a person who sends it back
 	for range time.Tick(2 * time.Second) {
 		signedIn := sess.SignedIn()
 		h.mu.Lock()
 		full, grace := h.fullscreen, h.graceUntil
 		h.mu.Unlock()
+		idle := h.idle()
+		if idle < raiseAfter {
+			raised = false
+		}
 		switch {
 		case full && signedIn:
 			h.w.Dispatch(func() { h.setFullscreen(false) })
-		case !full && !signedIn && time.Now().After(grace) && h.idle() >= nudgeAfter:
+		case !full && !signedIn && time.Now().After(grace) && idle >= nudgeAfter:
 			h.w.Dispatch(func() { h.setFullscreen(true) })
+		case !full && !signedIn && !raised && time.Now().After(grace) && idle >= raiseAfter:
+			// Nobody signed in (a signed-in student may be printing from the photo viewer).
+			raised = true
+			h.w.Dispatch(h.raise)
 		}
 	}
+}
+
+// raise brings the window in front of every other window without making it
+// stay there. It must run on the window's thread (use Dispatch).
+func (h *uiHost) raise() {
+	if fg, _, _ := procGetForeground.Call(); fg == h.hwnd {
+		return
+	}
+	if iconic, _, _ := procIsIconic.Call(h.hwnd); iconic != 0 {
+		_, _, _ = procShowWindow.Call(h.hwnd, swRestore)
+	}
+	// Windows may refuse SetForegroundWindow to a program nobody clicked, so
+	// briefly making it topmost is what actually puts it on top.
+	hwndTopmost, hwndNoTopmost := ^uintptr(0), ^uintptr(1)
+	const flags = 0x0001 | 0x0002 | 0x0040 // NOSIZE | NOMOVE | SHOWWINDOW
+	_, _, _ = procSetWindowPos.Call(h.hwnd, hwndTopmost, 0, 0, 0, 0, flags)
+	_, _, _ = procSetWindowPos.Call(h.hwnd, hwndNoTopmost, 0, 0, 0, 0, flags)
+	_, _, _ = procSetForeground.Call(h.hwnd)
 }
 
 func webview2Installed() bool {
