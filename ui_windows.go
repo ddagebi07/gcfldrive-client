@@ -106,6 +106,11 @@ func (h *uiHost) NoticeDone() {
 func (h *uiHost) pollNotices() {
 	for range time.Tick(time.Second) {
 		resp, err := askGuardResp(guard.Request{Op: "poll-notice"})
+		if err == nil && resp.Notice == nil && resp.Version != "" && resp.Version != version && h.restartable() {
+			// The service was updated; the service starts the window again from the new file.
+			h.Exit()
+			return
+		}
 		if err != nil || resp.Notice == nil {
 			continue
 		}
@@ -125,6 +130,12 @@ func (h *uiHost) pollNotices() {
 			h.w.Eval("window.showPrintNotice(" + string(raw) + ")")
 		})
 	}
+}
+
+// restartable reports whether the window may close for an update without
+// getting in anybody's way: nobody signed in and nobody touched the PC for a while.
+func (h *uiHost) restartable() bool {
+	return !h.srv.SignedIn() && h.idle() >= time.Minute
 }
 
 func (h *uiHost) isFullscreen() bool {

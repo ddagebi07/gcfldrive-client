@@ -96,6 +96,9 @@ func (s *Server) SyncSettings(every time.Duration) {
 	}
 }
 
+// SignedIn reports whether a student is using the screen now.
+func (s *Server) SignedIn() bool { return s.sess.SignedIn() }
+
 // SetFullscreen is called by the window when it changes mode, so the page can match.
 func (s *Server) SetFullscreen(on bool) {
 	s.mu.Lock()

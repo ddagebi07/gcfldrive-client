@@ -125,6 +125,8 @@ func (g *guardService) Execute(_ []string, requests <-chan svc.ChangeRequest, st
 	enableDebugPrivilege()
 	harden()
 	go syncLimit(drive.DefaultServer)
+	updated := make(chan struct{})
+	go g.autoUpdate(updated)
 
 	ln, err := listenGuard()
 	if err == nil {
@@ -142,6 +144,10 @@ func (g *guardService) Execute(_ []string, requests <-chan svc.ChangeRequest, st
 	ticks := 0
 	for {
 		select {
+		case <-updated:
+			// The new program is in place. Ending with a failure code makes the SCM
+			// start the service again (recovery actions), now from the new file.
+			return true, 1
 		case <-tick.C:
 			ticks++
 			g.tick(ticks%20 == 0)
@@ -210,7 +216,7 @@ func (g *guardService) handle(req guard.Request) guard.Response {
 	case "ping":
 		return guard.Response{OK: true}
 	case "poll-notice":
-		return guard.Response{OK: true, Notice: g.popNotice()}
+		return guard.Response{OK: true, Notice: g.popNotice(), Version: version}
 	case "resume":
 		g.mu.Lock()
 		g.pausedUntil = time.Time{}

@@ -76,6 +76,9 @@ type Response struct {
 	OK     bool    `json:"ok"`
 	Error  string  `json:"error,omitempty"`
 	Notice *Notice `json:"notice,omitempty"` // answer to poll-notice: a warning to show, if any
+	// Version is the program version the service runs (answer to poll-notice).
+	// A window started from an older file restarts itself when nobody uses it.
+	Version string `json:"version,omitempty"`
 }
 
 // Notice is a cancelled print job the window should tell the person about.

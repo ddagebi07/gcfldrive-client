@@ -59,7 +59,32 @@
 4. **종료·제거**: 창을 닫으려 하거나(Alt+F4) "Powered by" 로고를 4초 안에 7번 누르거나 Ctrl+Shift+F12 → 관리자 비밀번호 →
    - *프로그램 종료(10분간 보호 해제)*: 창이 닫히고 작업 관리자·레지스트리 편집기·출력 제한이 10분간 풀립니다. 끝나면 자동으로 다시 보호합니다. 일찍 켜려면 `gcfldrive.exe resume`.
    - *프로그램 제거*: 서비스·파일·정책을 모두 지웁니다. (명령줄은 `uninstall.cmd`)
-5. 업데이트는 제거 후 다시 설치합니다.
+5. 업데이트는 자동입니다(아래 「자동 업데이트」). 자동 업데이트가 없던 예전 버전이 깔린 PC는 한 번만 제거 후 다시 설치하세요.
+
+## 자동 업데이트
+
+보호 서비스가 켜진 뒤 2~12분, 그 뒤로 6~7시간마다 이 저장소의 **GitHub 최신 릴리스**를 확인합니다. 새 버전이 있으면 내려받아 서명을 확인한 뒤 프로그램을 바꾸고 서비스가 스스로 다시 시작합니다. 창은 **아무도 로그인하지 않았고 PC를 1분 이상 아무도 만지지 않을 때** 닫혔다가 새 버전으로 다시 뜨니, 학생이 쓰는 중에는 끊기지 않습니다.
+
+- 서비스는 SYSTEM 권한으로 프로그램을 실행하므로 **서명된 파일만** 받습니다. 릴리스의 `latest.json`에 프로그램의 SHA-256과 버전이 들어 있고, 관리자의 비밀 키(`release.key`)로 서명합니다. PC에는 공개 키(`internal/update/publickey.txt`)만 들어 있습니다. 서명이 틀리거나 파일이 바뀌었으면 아무것도 하지 않습니다.
+- `publickey.txt`가 비어 있거나 버전이 `dev`인 빌드는 업데이트를 하지 않습니다.
+- 학교 PC는 인터넷 주소 하나를 같이 쓰므로 GitHub API가 아니라 rate limit이 없는 `releases/latest/download/` 주소를 씁니다. `github.com`과 `objects.githubusercontent.com`이 열려 있어야 합니다.
+
+**처음 한 번 (키 만들기)**
+
+```
+go run ./cmd/release keygen      # release.key(비밀, 커밋 금지·꼭 백업) + internal/update/publickey.txt(커밋)
+git add internal/update/publickey.txt && git commit -m "업데이트 서명 공개 키"
+```
+
+`release.key`를 잃어버리면 새 버전을 서명할 수 없어서 모든 PC에 다시 설치해야 합니다. 안전한 곳에 백업해 두세요.
+
+**새 버전 배포**
+
+```
+VERSION=v1.2.0 ./build.sh        # dist/gcfldrive.exe + 서명된 dist/latest.json
+```
+
+GitHub에서 태그 `v1.2.0`으로 릴리스를 만들고(Pre-release·Draft 아님) `dist/gcfldrive.exe`와 `dist/latest.json` 두 파일을 올리면 끝입니다. 버전은 항상 이전보다 커야 합니다(`v1.2.0` → `v1.2.1`).
 
 ## Windows 첫 점검 목록
 
@@ -74,11 +99,12 @@
 - [ ] 대기 화면 오른쪽 아래에 급식 두 끼와 배너가 돌아가는가(배너는 관리 페이지에서 올린 뒤 10분 안에)
 - [ ] 3분 방치 후 전체화면 → 로고 7번 클릭 → 비밀번호 → 보호 풀기/제거
 - [ ] 125% 배율에서 창 크기와 글자가 어색하지 않은가
+- [ ] `v0.0.1`로 설치한 뒤 `v0.0.2` 릴리스를 올리면, 몇 시간 안에(또는 재부팅 후 12분 안에) 로그아웃 상태에서 창이 새 버전으로 다시 뜨는가
 
 ## 개발
 
 ```
-go test ./internal/...            # 코어(API·세션·비밀번호·7장 계산·로컬 서버)
+go test ./internal/...            # 코어(API·세션·비밀번호·7장 계산·로컬 서버·업데이트 서명)
 go run ./cmd/uipreview            # 출력되는 주소를 브라우저로 열면 화면을 볼 수 있습니다 
 GOOS=windows GOARCH=386 go vet .  # Windows 전용 코드 컴파일 확인
 ```
