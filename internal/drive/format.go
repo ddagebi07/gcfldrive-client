@@ -68,3 +68,17 @@ func Remaining(d time.Duration) string {
 		return fmt.Sprintf("%ds", int(d/time.Second))
 	}
 }
+
+// viewerExts are the non-document files 출력 hands to the Windows default viewer.
+// Only pictures: opening anything else with the shell could run it (.exe, .js)
+// or open Explorer (.zip) on a locked-down PC.
+var viewerExts = map[string]bool{
+	".jpg": true, ".jpeg": true, ".jfif": true, ".png": true, ".gif": true, ".bmp": true,
+	".webp": true, ".tif": true, ".tiff": true, ".heic": true, ".heif": true,
+}
+
+// ViewerFile reports whether filename is printed through the Windows viewer
+// instead of the page.
+func ViewerFile(filename string) bool {
+	return viewerExts[strings.ToLower(path.Ext(filename))]
+}

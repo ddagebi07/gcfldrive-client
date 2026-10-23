@@ -97,7 +97,11 @@ func (f *fakeArchive) serve(w http.ResponseWriter, r *http.Request) {
 	case len(parts) == 7 && parts[5] == "file":
 		for _, file := range list {
 			if file.FileID == parts[6] {
-				w.Header().Set("X-Drive-Kind", map[bool]string{true: "pdf", false: "text"}[strings.HasSuffix(file.Filename, ".pdf")])
+				kind := map[bool]string{true: "pdf", false: "text"}[strings.HasSuffix(file.Filename, ".pdf")]
+				if strings.HasSuffix(file.Filename, ".exe") {
+					kind = "file"
+				}
+				w.Header().Set("X-Drive-Kind", kind)
 				w.Header().Set("Content-Type", "application/pdf")
 				_, _ = w.Write(f.bodies[file.FileID])
 				return

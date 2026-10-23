@@ -250,7 +250,11 @@ func runUI(server string) int {
 	_ = os.RemoveAll(profile)
 	defer os.RemoveAll(profile)
 
+	clearOpened()
+	defer clearOpened()
+
 	sess := drive.NewSession(drive.SessionTimeout)
+	sess.OnLogout(clearOpened)
 	host := &uiHost{}
 	srv := drive.NewServer(drive.NewAPI(server), sess, host, pipeGuard{})
 	host.srv = srv

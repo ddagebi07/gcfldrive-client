@@ -285,6 +285,11 @@ async function printFile(f) {
   let blobId = null;
   try {
     const got = await call("/api/print", { id: f.id, name: f.name });
+    if (got.kind === "viewer") { // 사진처럼 문서가 아닌 파일은 Windows 기본 뷰어가 열렸다
+      setBusy("");
+      await notice("사진 앱에서 출력해 주세요", `열린 창에서 인쇄(Ctrl+P)를 눌러 주세요.\n한 번에 종이 ${maxSheets}장까지만 출력할 수 있어요.`);
+      return;
+    }
     blobId = got.blob;
     const res = await fetch("/api/blob/" + blobId);
     const buffer = await res.arrayBuffer();

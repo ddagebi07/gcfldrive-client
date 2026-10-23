@@ -41,6 +41,10 @@ type Host interface {
 	NoticeDone()
 	// Exit ends the program (administrator only).
 	Exit()
+	// OpenFile shows a file the page cannot draw (a photo) in the Windows default
+	// viewer, so the student prints from there. name is the original file name;
+	// the server only passes names that ViewerFile accepted.
+	OpenFile(name string, body []byte) error
 }
 
 // Guard is the protection service on the same PC. Every call carries the
@@ -64,6 +68,8 @@ type Server struct {
 	fullscreen bool
 	maxSheets  atomic.Int32
 
+	names map[string]string // file id -> original file name, from the last listing
+
 	menus   menuCache
 	banners bannerCache
 
@@ -73,7 +79,7 @@ type Server struct {
 func NewServer(api *API, sess *Session, host Host, guard Guard) *Server {
 	raw := make([]byte, 16)
 	_, _ = rand.Read(raw)
-	s := &Server{api: api, sess: sess, host: host, guard: guard, token: hex.EncodeToString(raw)}
+	s := &Server{api: api, sess: sess, host: host, guard: guard, token: hex.EncodeToString(raw), names: map[string]string{}}
 	s.maxSheets.Store(DefaultMaxSheets)
 	return s
 }
@@ -199,6 +205,13 @@ type fileView struct {
 func (s *Server) view(files []File) []fileView {
 	now := s.api.ServerNow()
 	out := make([]fileView, 0, len(files))
+	names := make(map[string]string, len(files))
+	for _, f := range files {
+		names[f.FileID] = f.Filename
+	}
+	s.mu.Lock()
+	s.names = names
+	s.mu.Unlock()
 	for _, f := range files {
 		v := fileView{ID: f.FileID, Name: DisplayName(f.Filename, f.FileSize)}
 		end, ok := ParseTime(f.ExpiresAt)
@@ -300,6 +313,26 @@ func (s *Server) handlePrint(w http.ResponseWriter, r *http.Request) {
 	if !s.sess.SignedIn() { // logged out while downloading
 		clear(got.Body)
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "다시 로그인해 주세요."})
+		return
+	}
+	s.mu.Lock()
+	filename := s.names[in.ID]
+	s.mu.Unlock()
+	switch {
+	case ViewerFile(filename):
+		// The page cannot print these itself (nothing happened on 출력), so the
+		// Windows viewer opens them; the print service still counts the sheets.
+		err := s.host.OpenFile(filename, got.Body)
+		clear(got.Body)
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"kind": "viewer"})
+		return
+	case got.Kind != "pdf" && got.Kind != "hwp" && got.Kind != "text" && got.Kind != "image":
+		clear(got.Body)
+		writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "이 형식은 출력할 수 없어요."})
 		return
 	}
 	id := s.sess.Hold(&Blob{Kind: got.Kind, ContentType: got.ContentType, Name: in.Name, Body: got.Body})

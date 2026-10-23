@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -41,7 +40,7 @@ type File struct {
 }
 
 // Fetched is a file body received for printing. Kind is what the server says it
-// is: pdf | hwp | image | text.
+// is: pdf | hwp | image | text, or anything else for a format the page cannot draw.
 type Fetched struct {
 	Kind        string
 	ContentType string
@@ -157,13 +156,8 @@ func (a *API) Fetch(ctx context.Context, hakbun, pin, fileID string) (*Fetched, 
 	if len(body) > maxFileBytes {
 		return nil, errors.New("파일이 너무 커서 출력할 수 없어요.")
 	}
-	kind := resp.Header.Get("X-Drive-Kind")
-	switch kind {
-	case "pdf", "hwp", "image", "text":
-	default:
-		return nil, fmt.Errorf("이 형식은 출력할 수 없어요.")
-	}
-	return &Fetched{Kind: kind, ContentType: resp.Header.Get("Content-Type"), Body: body}, nil
+	// An unknown kind is left for the caller: a picture can still go to the Windows viewer.
+	return &Fetched{Kind: resp.Header.Get("X-Drive-Kind"), ContentType: resp.Header.Get("Content-Type"), Body: body}, nil
 }
 
 // Delete removes one of the person's files from the server from the server.

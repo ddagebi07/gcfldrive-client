@@ -24,6 +24,10 @@ type host struct{}
 func (host) OtherWay()   { fmt.Println("other way") }
 func (host) Exit()       { fmt.Println("exit") }
 func (host) NoticeDone() { fmt.Println("notice done") }
+func (host) OpenFile(name string, body []byte) error {
+	fmt.Printf("open %s in the Windows viewer (%d bytes)\n", name, len(body))
+	return nil
+}
 
 func main() {
 	iso := func(d time.Duration) string {
@@ -44,6 +48,7 @@ func main() {
 		row("c", "창체 시간 활동지.hwp", 40<<10, 5*24*time.Hour, nil),
 		row("d", "가정통신문-진로창체부-2017-05호-아름다운 학교 만들기 캠페인.pdf", 300<<10, 7*24*time.Hour, nil),
 		row("e", "영어 에세이.hwpx", 20<<10, 7*24*time.Hour, nil),
+		row("f", "실험 사진.jpg", 900<<10, 3*24*time.Hour, nil),
 	}, ",")
 	arch := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -63,6 +68,10 @@ func main() {
 			_ = jpeg.Encode(w, img, nil)
 		case r.URL.Path == "/api/share/settings":
 			fmt.Fprint(w, `{"maxSheets":7}`)
+		case strings.HasSuffix(r.URL.Path, "/file/f"):
+			w.Header().Set("X-Drive-Kind", "image")
+			w.Header().Set("Content-Type", "image/jpeg")
+			_ = jpeg.Encode(w, image.NewRGBA(image.Rect(0, 0, 8, 8)), nil)
 		case strings.Contains(r.URL.Path, "/file/") && os.Getenv("UIPREVIEW_PDF") != "":
 			body, _ := os.ReadFile(os.Getenv("UIPREVIEW_PDF"))
 			w.Header().Set("X-Drive-Kind", "pdf")

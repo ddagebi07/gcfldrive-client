@@ -9,11 +9,20 @@ import (
 	"time"
 )
 
-type fakeHost struct{ otherWay, exited int }
+type fakeHost struct {
+	otherWay, exited int
+	opened           []string
+	openedBody       string
+}
 
 func (h *fakeHost) OtherWay()   { h.otherWay++ }
 func (h *fakeHost) Exit()       { h.exited++ }
 func (h *fakeHost) NoticeDone() {}
+func (h *fakeHost) OpenFile(name string, body []byte) error {
+	h.opened = append(h.opened, name)
+	h.openedBody = string(body)
+	return nil
+}
 
 type fakeGuard struct{ ok bool }
 
@@ -125,6 +134,24 @@ func TestLoginListPrintDelete(t *testing.T) {
 
 	if code, _ := r.do("POST", "/api/delete", `{"id":"a"}`); code != 200 || len(r.arch.deleted) != 1 {
 		t.Errorf("delete: %d %v", code, r.arch.deleted)
+	}
+}
+
+func TestPicturesOpenInTheWindowsViewer(t *testing.T) {
+	r := newRig(t)
+	r.arch.add("30512", "1234", "p", "사진.JPG", 2048, []byte("jpeg-bytes"), nil)
+	r.arch.add("30512", "1234", "x", "game.exe", 2048, []byte("MZ"), nil)
+	r.do("POST", "/api/login", `{"hakbun":"30512","pin":"1234"}`)
+
+	code, body := r.do("POST", "/api/print", `{"id":"p","name":"사진 [JPG,2KB]"}`)
+	if code != 200 || !strings.Contains(body, `"kind":"viewer"`) {
+		t.Fatalf("picture: %d %s", code, body)
+	}
+	if len(r.host.opened) != 1 || r.host.opened[0] != "사진.JPG" || r.host.openedBody != "jpeg-bytes" {
+		t.Errorf("viewer got %v %q", r.host.opened, r.host.openedBody)
+	}
+	if code, _ := r.do("POST", "/api/print", `{"id":"x","name":"game [EXE,2KB]"}`); code != 415 || len(r.host.opened) != 1 {
+		t.Errorf("an unknown format must not reach the shell: %d %v", code, r.host.opened)
 	}
 }
 
