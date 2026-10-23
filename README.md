@@ -53,7 +53,8 @@
 
 ## 설치와 관리
 
-1. `./build.sh` → `dist/` 에 `gcfldrive.exe`, `install.cmd`, `uninstall.cmd`
+1. `./build.sh` → `dist/` 에 `gcfldrive-setup.exe`(한 파일 설치본), `gcfldrive.exe`, `install.cmd`, `uninstall.cmd`
+   - **가장 쉬운 방법**: 각 PC에서 `gcfldrive-setup.exe`를 더블클릭 → "앱이 디바이스를 변경하도록 허용" 예 → 끝. (`gcfldrive-setup.exe --set-password`로 PC별 비밀번호, `gcfldrive-setup.exe uninstall`로 제거)
 2. WebView2 런타임이 없는 PC가 있으면 `MicrosoftEdgeWebView2RuntimeInstallerX86.exe`(Evergreen 독립 실행형 x86)를 `dist/` 에 같이 넣습니다.
 3. 각 PC에서 `install.cmd` 실행 → 끝. 관리자 비밀번호는 모든 PC에 같은 기본값이 들어가며(소스에는 해시만 있음), PC마다 다르게 하려면 `gcfldrive.exe install --set-password`로 설치하세요. 다음 로그인부터 창이 자동으로 뜹니다.
 4. **종료·제거**: 창을 닫으려 하거나(Alt+F4) "Powered by" 로고를 4초 안에 7번 누르거나 Ctrl+Shift+F12 → 관리자 비밀번호 →

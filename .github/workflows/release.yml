@@ -33,5 +33,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/gcfldrive.exe dist/latest.json dist/install.cmd dist/uninstall.cmd \
+          gh release create "$GITHUB_REF_NAME" dist/gcfldrive-setup.exe dist/gcfldrive.exe dist/latest.json dist/install.cmd dist/uninstall.cmd \
             --title "$GITHUB_REF_NAME" --generate-notes
