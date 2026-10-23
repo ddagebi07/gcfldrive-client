@@ -137,14 +137,17 @@ func sameSize(a, b string, ai os.FileInfo) bool {
 	return err != nil || bi.Size() == ai.Size()
 }
 
-func enableDebugPrivilege() {
+func enableDebugPrivilege() { enablePrivilege("SeDebugPrivilege") }
+
+// enablePrivilege turns on a privilege the process token holds but has off (administrators hold several).
+func enablePrivilege(name string) {
 	var tok windows.Token
 	if windows.OpenProcessToken(windows.CurrentProcess(), windows.TOKEN_ADJUST_PRIVILEGES|windows.TOKEN_QUERY, &tok) != nil {
 		return
 	}
 	defer tok.Close()
 	var luid windows.LUID
-	if windows.LookupPrivilegeValue(nil, windows.StringToUTF16Ptr("SeDebugPrivilege"), &luid) != nil {
+	if windows.LookupPrivilegeValue(nil, windows.StringToUTF16Ptr(name), &luid) != nil {
 		return
 	}
 	p := windows.Tokenprivileges{PrivilegeCount: 1}

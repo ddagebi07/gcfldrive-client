@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/windows"
@@ -51,6 +52,9 @@ func cliInstall(args []string) int {
 	self, err := os.Executable()
 	if err != nil {
 		fmt.Println("프로그램 위치를 찾지 못했어요:", err)
+		return 1
+	}
+	if !clearLeftovers(self) {
 		return 1
 	}
 
@@ -154,4 +158,93 @@ func cliResume() int {
 	}
 	fmt.Println("보호를 다시 켰어요.")
 	return 0
+}
+
+// clearLeftovers removes what an earlier install left behind when its service is
+// already gone (a failed uninstall, a half-finished install). Those folders are
+// owned by SYSTEM and closed to administrators, so they are taken over first.
+func clearLeftovers(self string) bool {
+	dirs := []string{installDir, dataDir}
+	found := false
+	for _, d := range dirs {
+		if _, err := os.Lstat(d); err == nil {
+			found = true
+		}
+	}
+	if !found {
+		return true
+	}
+	fmt.Println("전에 설치했던 파일을 정리하고 있어요…")
+	// Administrators may take ownership and kill the protected window (it denies termination to everyone else).
+	enablePrivilege("SeTakeOwnershipPrivilege")
+	enablePrivilege("SeRestorePrivilege")
+	enableDebugPrivilege()
+	killUI()
+	time.Sleep(500 * time.Millisecond)
+	for _, d := range dirs {
+		if err := takeOver(d); err != nil {
+			fmt.Printf("%s 의 권한을 가져오지 못했어요: %v\n", d, err)
+			return false
+		}
+		if inside(self, d) {
+			fmt.Printf("설치 폴더(%s) 안에서는 설치할 수 없어요. 다른 폴더에 받은 gcfldrive.exe 로 설치해 주세요.\n", d)
+			return false
+		}
+		if err := os.RemoveAll(d); err != nil {
+			setAsideInUse(d)
+		}
+	}
+	return true
+}
+
+// takeOver makes the administrators the owner of dir with full control, and lets
+// that control flow down to everything inside (Windows rewrites the children's
+// inherited entries), so the folder can be deleted.
+func takeOver(dir string) error {
+	if _, err := os.Lstat(dir); os.IsNotExist(err) {
+		return nil
+	}
+	admins, err := windows.StringToSid(adminsSID)
+	if err != nil {
+		return err
+	}
+	if err := windows.SetNamedSecurityInfo(dir, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION, admins, nil, nil, nil); err != nil {
+		return err
+	}
+	sd, err := windows.SecurityDescriptorFromString("D:AI(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)")
+	if err != nil {
+		return err
+	}
+	dacl, _, err := sd.DACL()
+	if err != nil {
+		return err
+	}
+	return windows.SetNamedSecurityInfo(dir, windows.SE_FILE_OBJECT,
+		windows.DACL_SECURITY_INFORMATION|windows.UNPROTECTED_DACL_SECURITY_INFORMATION, nil, nil, dacl, nil)
+}
+
+// setAsideInUse handles files that are still open (a program that could not be
+// stopped): each is renamed out of the way so the new copy can take its name,
+// and Windows deletes it at the next restart.
+func setAsideInUse(dir string) {
+	_ = filepath.WalkDir(dir, func(path string, e os.DirEntry, err error) error {
+		if err != nil || e.IsDir() {
+			return nil
+		}
+		if os.Remove(path) == nil {
+			return nil
+		}
+		aside := fmt.Sprintf("%s.old-%d", path, time.Now().UnixNano())
+		if os.Rename(path, aside) == nil {
+			path = aside
+		}
+		p, _ := windows.UTF16PtrFromString(path)
+		_ = windows.MoveFileEx(p, nil, windows.MOVEFILE_DELAY_UNTIL_REBOOT)
+		return nil
+	})
+}
+
+func inside(path, dir string) bool {
+	rel, err := filepath.Rel(strings.ToLower(dir), strings.ToLower(path)) // Windows paths ignore case
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
